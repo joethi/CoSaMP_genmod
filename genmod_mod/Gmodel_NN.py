@@ -27,7 +27,7 @@ class GenNN(nn.Module):
         super(GenNN, self).__init__()
         self.lin1 = nn.Linear(d_in,H)
         self.lin2 = nn.Linear(H,d_out)
-    def forward(self,alpha):
+    def forward(self,alpha,it_ind):
         # gel = nn.GELU()
         self.a1 = self.lin1(alpha)
         # self.Rl1 = torch.exp(-(self.a1)**2)
@@ -35,6 +35,10 @@ class GenNN(nn.Module):
         self.Rl1 = (self.a1)
         y_hid = self.lin2(self.Rl1)
         chat    = torch.exp(-y_hid)
+        if it_ind==4:
+            self.Rl1 = sigmoid(self.a1)
+            y_hid = self.lin2(self.Rl1)
+            chat    = torch.exp(-y_hid)
         # print('y1-b:',self.a1)
         # print('y1:',torch.t(self.Rl1))
         # print('y2:',torch.t(y_hid))

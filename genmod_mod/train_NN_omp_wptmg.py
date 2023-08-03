@@ -18,8 +18,12 @@ def loss_crit(ghat,g,W_fc,f_x,ind_vt):
     P = ghat.size(dim=0)
     #weighted loss:
     # Wt = W_fc * ghat
-    # Wt = f_x[ind_vt]      
-    Wt = torch.ones(P)
+    # Wt = f_x[ind_vt]
+    if W_fc==1:
+        Wt = torch.ones(P)
+    else:
+        Wt = W_fc * ghat
+        #print("Wt:",Wt)
     # Wt_sqt = torch.sqrt(Wt)
     Lsqr_diff  = Wt*(ghat-g)**2
     L  = torch.sum(Lsqr_diff)    #weighted sum.
@@ -32,7 +36,7 @@ def loss_crit(ghat,g,W_fc,f_x,ind_vt):
     # L  = torch.sum(((ghat-g)**2))/(LA.norm(ghat)*torch.numel(G_ini))
     # Loss_crt = nn.MSELoss(reduction='sum')
     return L,Wt,L_uwt
-def train_theta(chat_omp, GNNmod, optimizer,thet_up,thet_str1, i, alph_in_tot,epochs,H,t_ind,v_ind,freq,W_fc):
+def train_theta(chat_omp, GNNmod, optimizer,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,H,t_ind,v_ind,freq,W_fc):
     cost = []
     zer_str = []
     cost_rel = []
@@ -82,7 +86,7 @@ def train_theta(chat_omp, GNNmod, optimizer,thet_up,thet_str1, i, alph_in_tot,ep
             nn.utils.vector_to_parameters(thet, GNNmod.parameters())
             # thet_i = thet.detach().numpy() #it is gonna keep changing the parameters even if it is defined for epoch=0.
             G_ini = G_omp        
-        G_NN = GNNmod(alph_in).flatten()
+        G_NN = GNNmod(alph_in,Nt_ind).flatten()
         # G_NN_h = dmold.G_NN_nphrdcd(thet, alph_in,H)
         # print('G_NN',G_NN)
         # print('G_ver',G_ver)
@@ -109,7 +113,7 @@ def train_theta(chat_omp, GNNmod, optimizer,thet_up,thet_str1, i, alph_in_tot,ep
         total=loss.item() 
         total_uwt = loss_uwt.item()
         # Validation Loss:
-        G_NN_val = GNNmod(alph_in_val).flatten()            
+        G_NN_val = GNNmod(alph_in_val,Nt_ind).flatten()            
         loss_val, W_val,loss_uwt_val = loss_crit(G_omp_val,G_NN_val,W_fc,f_x,v_ind)
         total_val = loss_val.item()
         total_uwt_val = loss_uwt_val.item()
