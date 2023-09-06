@@ -27,6 +27,7 @@ import matplotlib.pyplot as plt
 from matplotlib.pyplot import cm
 import sklearn.linear_model as lm
 from itertools import combinations
+import argparse
 import os
 # from numpy import log10, sign, abs
 np.random.seed(1)
@@ -37,8 +38,7 @@ sys.path.append('/home/jothi/CoSaMP_genNN')
 # out_dir_ini = 'C:/Users/jothi/OneDrive - UCB-O365/PhD/UQ_research/ACCESS_UQ/GenMod-NN/GenMod_omp/output/duff_osc_ppr'
 # out_dir_ini = 'C:/Users/jothi/OneDrive - UCB-O365/PhD/UQ_research/ACCESS_UQ/GenMod-NN/GenMod_omp/output/wing_wght'
 # out_dir_ini = 'C:/Users/jothi/OneDrive - UCB-O365/PhD/UQ_research/ACCESS_UQ/GenMod-NN/GenMod_omp/output/1DElliptic_ppr'
-out_dir_ini = f'../output/titan_ppr/results'
-out_dir_sct = '../data/Titn_rcnt_dta/dx1em3/LN_d78_hghunkF'    
+#out_dir_ini = f'../output/titan_ppr/results'
 # Redirect stdout to a file
 #sys.stdout = open(f'{out_dir_ini}/plots/log_printed.txt', 'w')
 import genmod_mod.polynomial_chaos_utils as pcu
@@ -49,10 +49,46 @@ import warnings
 #from genmod_mod import Gmodel_NN as gnn_test
 #import _omp as omp_scd
 #import pdb;pdb.set_trace()
+parser = argparse.ArgumentParser(description='Parse the inputs such as output directory name, number of neurons, and so on...')
+parser.add_argument('--out_dir_ini',dest = 'out_dir_prs', type=str, help='specify out_dir_ini directory-it is the location of outputs similar to f\'../output/titan_ppr/results\'')
+parser.add_argument('--H',dest='N_Hid',type=int,help='number of hidden neurons')
+parser.add_argument('--S0',dest='S_0',type=int,help='Sparsity for p0')
+parser.add_argument('--Sh',dest='S_h',type=int,help='Sparsity for ph')
+parser.add_argument('--N',dest='N_smp',type=int,help='Number of samples')
+parser.add_argument('--Nv',dest='N_v',type=int,help='Number of validation samples')
+parser.add_argument('--p_h',dest='ph',type=int,help='p_h')
+parser.add_argument('--p_0',dest='p0',type=int,help='p_0')
+args = parser.parse_args()
+#********RESTART KERNEL IF SWITCHING BW DIFFERENT FOLDERS**********
+#==============DO NOT USE THIS CODE TO USE Ncrp>1==================
+# Set parameters
+p = args.ph 
+p_0 = args.p0
+d = 20  # Set smaller value of d for code to run faster
+S_omp = args.S_h
+S_omp0 = args.S_0
+S_chs = 2*S_omp
+freq = 1 
+W_fac = [1.0,1.0,1.0,1.0,1.0]
+sprsty = S_omp
+chc_eps = 'u'
+chc_Psi = 'Hermite'
+top_i1 = 3 #int(4*cini_nz_ln/5-ntpk_cr), ntpk_cr = top_i1. 4*cini_nz_ln/5 should be > ntpk_cr
+top_i0 = 3 
+#Seed values:
+seed_ind = 1
+seed_thtini = 1
+seed_ceff = 2
+Hid = args.N_Hid # number of neurons
+z_n = d * Hid  + 2*Hid + 1    
+out_dir_ini = args.out_dir_prs
+#import pdb; pdb.set_trace()
+out_dir_sct = '../data/Titn_rcnt_dta/opLNtp20_sm200'    
+#out_dir_sct = '../data/Titn_rcnt_dta/dx1em3/LN_d78_hghunkF'    
 start_time = time.time()
 print('start and start time:',start_time,start_time)
 os.system(f'rm -r {out_dir_ini}/plots')
-os.system(f'mkdir {out_dir_ini}/plots')
+os.makedirs(f'{out_dir_ini}/plots')
 #%% Load data
 ## CHANGE THE VALIDATION ERROR FUNCTION FOR ELLIPTIC EQUATION AS \PSI IS FROM LEGENDRE POLY:
 # data = sio.loadmat('C:/Users/jothi/OneDrive - UCB-O365/PhD/UQ_research/ACCESS_UQ/GenMod-NN/GenMod_omp/data/dataset1/1Dellptic_data.mat')
@@ -89,41 +125,27 @@ c_ref = []
 #df_ydtnrm.to_csv(f'{out_dir_sct}/lnpdst_N30k_dx3/ydt_stdnrm_ttn_Aval_ln_pd8th.csv',index=False)
 #import pdb; pdb.set_trace()
 #titan:
-y_data1 = pd.read_csv(f'{out_dir_sct}/files/Aval_zis_frm_invmp_78_ln_hghunkF.csv').to_numpy()
+# Read for the Maximum CN concentration for the previous data:
 #y_data1 = pd.read_csv(f'{out_dir_sct}/files/Aval_zis_frm_invmp_78d_N20k.csv').to_numpy()
-u_data2 = pd.read_csv(f'{out_dir_sct}/xCN/xCN_smp.csv').to_numpy()
-u_data1 = np.transpose(u_data2[:,2:])
+#u_data2 = pd.read_csv(f'{out_dir_sct}/xCN/xCN_smp.csv').to_numpy()
+#u_data1 = np.transpose(u_data2[:,2:]) #First two colums are just junks.
+#u_data = np.amax(u_data1,axis=1)
+y_data1 = pd.read_csv(f'{out_dir_sct}/files/ynrm_fl_stdGsn_N1000_d20.csv').to_numpy()
+u_data1 = pd.read_csv(f'{out_dir_sct}/MURP_data/Qrad_dat_PLATO_to_MURP_N1000.csv').to_numpy()
+x_data = pd.read_csv(f'{out_dir_sct}/MURP_data/x_dat_PLATO_to_MURP_N1000.csv').to_numpy()
+#u_data1 has a shape of "Number of grid points by N_samp" for Wall-directed radiative heat flux.
+#import pdb;pdb.set_trace()
 print('u_data1[:5,:5]',u_data1[:5,:5])
 #%%
-#********RESTART KERNEL IF SWITCHING BW DIFFERENT FOLDERS**********
-#==============DO NOT USE THIS CODE TO USE Ncrp>1==================
-# Set parameters
-p = 3
-p_0 = 2
-d = 78  # Set smaller value of d for code to run faster
-Hid = 7 # number of neurons
-S_omp = 6
-S_omp0 = 7
-S_chs = 2*S_omp
-freq = 1 
-W_fac = [1.0,1.0,1.0,1.0,1.0]
-sprsty = S_omp
-chc_eps = 'u'
-chc_Psi = 'Hermite'
-z_n = d * Hid  + 2*Hid + 1    
-top_i1 = 3 #int(4*cini_nz_ln/5-ntpk_cr), ntpk_cr = top_i1. 4*cini_nz_ln/5 should be > ntpk_cr
-top_i0 = 3 
-#Seed values:
-seed_ind = 1
-seed_thtini = 1
-seed_ceff = 2
 #%% Read data:
 # Elliptic:
 # y_data1 = data['y']
 # y_data = y_data1[:,0:d]
 # u_data = data['u'].flatten() 
 # Titan:
-u_data = np.amax(u_data1,axis=1)
+u_data = np.mean(u_data1,axis=0)
+#import pdb;pdb.set_trace()
+Nsmp_tot = np.size(u_data)
 y_data = y_data1[:,0:d]
 #%% Visualize the data:
 # plt.figure(20)
@@ -131,9 +153,10 @@ y_data = y_data1[:,0:d]
 # plt.hist(y_data[:,0],label = '$y_1$')
 # plt.legend()
 plt.figure(21)
-u_plt_rnd = random.sample(range(10000), 20)
+u_plt_rnd = random.sample(range(Nsmp_tot), 20)
 for i in u_plt_rnd:
-    plt.plot(u_data1[i,:],label=f'i={i}')
+#    plt.plot(u_data1[i,:],label=f'i={i}')
+    plt.plot(x_data[:,i],u_data1[:,i],label=f'i={i}')
     plt.xlabel('spatial location x')    
     plt.ylabel('CN concentration')    
 plt.savefig(f'{out_dir_ini}/plots/CN_molfrctn_rnd20smp.png')
@@ -171,19 +194,20 @@ P = np.size(mi_mat,0)
 # sprsty = 43
 tot_itr = 5
 Nc_rp = 1 # NOTE: Set this as always 1 for this particular case.
+Nrp_vl = 1
 ecmn_ind = 0
 # sprsty = 5  #Think about giving sparsity=1, some matrix manipulations might get affected.
 learning_rate = 0.001
 epochs = 10**5
 #%% Write index file:
-N = 80  # note that you need more samples than sparsity for least squares.
-Nv = 4000
-Nrep = 20
-j_rng = [15]#range(Nrep) ---change this to run for a particular replication. Useful for debugging.
+N = args.N_smp  # note that you need more samples than sparsity for least squares.
+Nv = args.N_v
+Nrep = 10
+j_rng = range(Nrep) #range(Nrep) ---change this to run for a particular replication. Useful for debugging.
 #% Save parameters:
 opt_params = {'ph':p,'p0':p_0,'d':d,'H':Hid,'epochs':epochs,'lr':learning_rate,'Sh':sprsty,'S0':S_omp0,
-        'N_t':tot_itr,'fr':freq,'W_fac':f'{W_fac}','z_n':z_n,'Tp_i1':top_i1,'Tp_i0':top_i0,'N':N,'Nv':Nv,'Nrep':Nrep,'Nc_rp':Nc_rp,'S_chs':S_chs,'chc_poly':chc_Psi,'sd_ind':seed_ind,'sd_thtini':seed_thtini,'sd_ceff':seed_ceff}
-#    import pdb;pdb.set_trace() 
+        'N_t':tot_itr,'fr':freq,'W_fac':f'{W_fac}','z_n':z_n,'Tp_i1':top_i1,'Tp_i0':top_i0,'N':N,'Nv':Nv,'Nrep':Nrep,'Nc_rp':Nc_rp,'S_chs':S_chs,'chc_poly':chc_Psi,'sd_ind':seed_ind,'sd_thtini':seed_thtini,'sd_ceff':seed_ceff,'Nrp_vl':Nrp_vl}
+#import pdb;pdb.set_trace() 
 df_params = pd.DataFrame(opt_params,index=[0])
 df_params.to_csv(f'{out_dir_ini}/plots/params_genmod_omp_N={N}_ini.csv')
 print(df_params)
@@ -219,6 +243,7 @@ for j in j_rng:
     valid_indices = np.setdiff1d(range(np.size(u_data)), optim_indices)
     trains = [name for name in indices0.columns if name.startswith("optim")]
     test_indices = indices0.loc[j][trains].to_numpy()
+#    import pdb; pdb.set_trace()
     data_tst = {'y_data':y_data,'u_data':u_data,'val_ind':valid_indices,'test_ind':test_indices,'opt_ind':optim_indices,'Nv':Nv,
                 'chc_poly':chc_Psi} 
 ##   Calculate validation error using specific coeff: top-x values are kept as nonzero
@@ -328,7 +353,8 @@ for j in j_rng:
     c_ini = c_om_std
 #    c_ini[74] = 0.001
 #    c_ini[9] = 0
-    print('S_0:',np.size(np.nonzero(c_ini)[0]))
+    S_omp0 = np.size(np.nonzero(c_ini)[0])
+    print('S_0:', S_omp0)
     # c_ini = pd.read_csv(f'{out_dir_ini}/ini/ompcs/cini_1dellps_n=680_genmod_S=168_0.csv').to_numpy().flatten()
     # Test on the data:
     train_err_p0, valid_err_p0 = tnn.val_test_err(data_tst,mi_mat_omp,c_ini)
@@ -336,6 +362,10 @@ for j in j_rng:
     print(f'Training Error for c_ini: {train_err_p0}')
     # Validation error: is the error on the unseen data:
     print(f'Validation Error for c_ini: {valid_err_p0}')
+    df_comp0 = pd.DataFrame({'c_omp0':c_ini})
+    df_comp0.to_csv(f'{out_dir_ini}/plots/j={j}/comp0_1dellps_n={N}_genmod_S={S_omp0}_p={p_omp}_j{j}.csv',index=False)
+    df_omp_err = pd.DataFrame({'valid_err':[valid_err_p0],'test_err':[train_err_p0]})
+    df_omp_err.to_csv(f'{out_dir_ini}/plots/j={j}/epsu_1dellps_n={N}_genmod_S0={S_omp0}_p0={p_omp}.csv',index=False)
 ##==========================================================================================================
 ##    import pdb;pdb.set_trace()
 #   
@@ -364,6 +394,9 @@ for j in j_rng:
     S_omph = np.size(np.nonzero(c_omph)[0])
     print('S_omph:',S_omph)
     test_omp_ph, valid_omp_ph = tnn.val_test_err(data_tst,mi_mat_omph,c_omph)
+    print(f'Training Error for c_omph: {test_omp_ph}')
+    # Validation error: is the error on the unseen data:
+    print(f'Validation Error for c_omph: {valid_omp_ph}')
     #import pdb;pdb.set_trace()
 # Least squares:
     # eps_u_tomp = la.norm(Psi[test_indices[:N_tep],:] @ c_omph - u_data[test_indices[:N_tep]])/la.norm(u_data[test_indices[:N_tep]])
@@ -402,8 +435,7 @@ for j in j_rng:
     #%% Plot active sets:
     # df_cini_omp = pd.DataFrame({'cini':c_ini})
     # df_cini_omp.to_csv(f'{out_dir_ini}/plots/cini_1dellps_n={N}_genmod_S={sprsty}_p={p_omp}.csv',index=False)
-    df_omp_err = pd.DataFrame({'valid_err':[valid_err_p0],'test_err':[train_err_p0]})
-    df_omp_err.to_csv(f'{out_dir_ini}/plots/j={j}/epsu_1dellps_n={N}_genmod_S0={S_omp0}_p0={p_omp}.csv',index=False)
+#    import pdb; pdb.set_trace()
     plt.figure(110)
     max_nnzr = np.size(np.nonzero(c_ini))
     plt.plot(np.nonzero(c_ini),np.nonzero(c_ini),'*r')
@@ -452,6 +484,7 @@ for j in j_rng:
     cost_tot = np.zeros(int(epochs/freq))
     cost_rel_tot = np.zeros(int(epochs/freq))
     z_err_tot = np.zeros(int(epochs/freq))
+    
     thet_dict = np.zeros_like(thet_str)
     Gmod_dict = np.zeros((P,1))
     test_err_ls = []
@@ -482,6 +515,7 @@ for j in j_rng:
     #%% Define the training function:
     #initialization:
     nn.utils.vector_to_parameters(thet_upd, GNNmod.parameters())
+    print("GNNmod parameters:",GNNmod.parameters())
     #Train on a few points:
     # mi_mat_in = mi_mat_omp[0:2,:]
     # c_hat = c_ini[0:2]    
@@ -505,6 +539,7 @@ for j in j_rng:
     # G_ver = dmold.NN_Gapprx(thet_str, mi_mat_in,Hid) 
     # print('G_ver',G_ver)
     #%% Start training:
+    ls_vlit_min = np.zeros((Nrp_vl,tot_itr))
     random.seed(seed_ceff+j)
     i = 0
     while i < tot_itr:
@@ -513,6 +548,11 @@ for j in j_rng:
         # print('G_mod:',G_mod) 
         # optimizer = torch.optim.SGD(GNNmod.parameters(), lr=learning_rate)        
         optimizer = torch.optim.Adam(GNNmod.parameters(), lr=learning_rate)
+        cost_val_tmp = np.zeros((int(epochs/freq),Nrp_vl)) 
+        cost_tmp = np.zeros_like(cost_val_tmp)
+        thet_f_tmp = torch.zeros((z_n,Nrp_vl))
+        thet_bst_tmp = torch.zeros((z_n,Nrp_vl))
+        zer_str_tmp = np.zeros_like(cost_tmp)
         for trc in range(Nc_rp):
             if i>0:
                 #mi_mat_in = mi_mat   
@@ -523,6 +563,7 @@ for j in j_rng:
                 c_hat = pd.read_csv(f'{out_dir_ini}/plots/j={j}/it={i-1}/comp_rs_1dellps_n={N}_genmod_S={sprsty}_{i-1}_j{j}_c{trc}.csv').to_numpy().flatten()
                 
                 cr_mxind = (np.argsort(np.abs(c_hat))[::-1])[:top_i1]
+
             P_alg = np.size(mi_mat_in,0)
             cini_nz = np.nonzero(c_hat)[0]
             cini_nz_ln = np.size(cini_nz) 
@@ -535,42 +576,66 @@ for j in j_rng:
             #to include/exclude top 10 coefficients in the validation/training sets:
             cini_sbmind = np.setdiff1d(cini_nz,cr_mxind)
             ntpk_cr = np.size(cr_mxind)
-            trn_ind_nz = random.sample(cini_sbmind.tolist(), int(4*cini_nz_ln/5-ntpk_cr)) #to include all top 10.
-            # trn_ind_nz = random.sample(cini_sbmind.tolist(), int(4*cini_nz_ln/5)) 
-            trn_ind_z = random.sample(cini_z.tolist(),int(4*cini_z_ln/5))
-            # trn_ind_nw = np.concatenate((trn_ind_nz,trn_ind_z),axis=None) 
-            trn_ind_nw = np.concatenate((cr_mxind,trn_ind_nz,trn_ind_z),axis=None)
-            #Test indices: 
-            # trn_ind_nw = random.sample(range(P_alg), int(4*P_alg/5))
+            for itvl_ind in range(Nrp_vl):
+                trn_ind_nz = random.sample(cini_sbmind.tolist(), int(4*cini_nz_ln/5-ntpk_cr)) #to include all top 10.
+                # trn_ind_nz = random.sample(cini_sbmind.tolist(), int(4*cini_nz_ln/5)) 
+                trn_ind_z = random.sample(cini_z.tolist(),int(4*cini_z_ln/5))
+                # trn_ind_nw = np.concatenate((trn_ind_nz,trn_ind_z),axis=None) 
+                trn_ind_nw = np.concatenate((cr_mxind,trn_ind_nz,trn_ind_z),axis=None)
+                #Test indices: 
+                # trn_ind_nw = random.sample(range(P_alg), int(4*P_alg/5))
         
-            df_trn_ind_nw = pd.DataFrame({'trn_ind_nw':trn_ind_nw})        
-            df_trn_ind_nw.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/trn_indices_alph_omp_N={N}_{i}_c{trc}.csv',index=False)
-            # Validation indices:    
-            val_ind_nw = np.setdiff1d(np.linspace(0,P_alg-1,P_alg),trn_ind_nw)
-            df_val_ind_nw = pd.DataFrame({'val_ind_nw':val_ind_nw})        
-            df_val_ind_nw.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/val_indices_alph_omp_N={N}_{i}_c{trc}.csv',index=False)
-            #==========================================================================
-            #read val,train indices:
-#            if i==0:               
-#                # FIXME: HARDCODING:
-#                trn_ind_nw = pd.read_csv(f'{out_dir_ini}/ini/tvceff/j=3_csjul15/it=0/trn_indices_alph_omp_N=100_{i}_c0.csv').to_numpy().flatten()
-#                val_ind_nw = pd.read_csv(f'{out_dir_ini}/ini/tvceff/j=3_csjul15/it=0/val_indices_alph_omp_N=100_{i}_c0.csv').to_numpy().flatten()
-            # elif i==1:  
-            #     trn_ind_nw = pd.read_csv(f'{out_dir_ini}/ini/ind/N=100/trn_indices_alph_omp_N=100_1_c0.csv').to_numpy().flatten()
-            #     val_ind_nw = pd.read_csv(f'{out_dir_ini}/ini/ind/N=100/val_indices_alph_omp_N=100_1_c0.csv').to_numpy().flatten()
-            # else:
-            #     trn_ind_nw = pd.read_csv(f'{out_dir_ini}/ini/ind/epsc_dec/trn_indices_alph_omp_N=200_1_c0.csv').to_numpy().flatten()
-            #     val_ind_nw = pd.read_csv(f'{out_dir_ini}/ini/ind/epsc_dec/val_indices_alph_omp_N=200_1_c0.csv').to_numpy().flatten()
-            df_trn_ind_nw = pd.DataFrame({'trn_ind_nw':trn_ind_nw})        
-            df_trn_ind_nw.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/trn_indices_alph_omp_N={N}_{i}_c{trc}.csv',index=False)
-            df_val_ind_nw = pd.DataFrame({'val_ind_nw':val_ind_nw})        
-            df_val_ind_nw.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/val_indices_alph_omp_N={N}_{i}_c{trc}.csv',index=False)
-            #==========================================================================
-            cost_uwt,cost_uwt_val,cost_rel,cost_val_rel,cost,cost_val,thet_f,thet_bst,zer_str,thet_dict1 = tnn.train_theta(
-                torch.Tensor(np.abs(c_hat.flatten())), GNNmod, optimizer, thet_upd,thet_str,i, 
-                torch.Tensor(mi_mat_in),epochs,Hid,trn_ind_nw,val_ind_nw,freq,W_fac[i])
-# TODo: see if this should be changed to thet_bst:So far not necessary!            
-            thet_upd = torch.Tensor(np.random.rand(z_n))
+                df_trn_ind_nw = pd.DataFrame({'trn_ind_nw':trn_ind_nw})        
+                df_trn_ind_nw.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/trn_indices_alph_omp_N={N}_{i}_c{trc}_ivl{itvl_ind}.csv',index=False)
+                # Validation indices:    
+                val_ind_nw = np.setdiff1d(np.linspace(0,P_alg-1,P_alg),trn_ind_nw)
+                df_val_ind_nw = pd.DataFrame({'val_ind_nw':val_ind_nw})        
+                df_val_ind_nw.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/val_indices_alph_omp_N={N}_{i}_c{trc}_ivl{itvl_ind}.csv',index=False)
+                #==========================================================================
+                #read val,train indices:
+#                if i==0:               
+#                    # FIXME: HARDCODING:
+#                    trn_ind_nw = pd.read_csv(f'{out_dir_ini}/ini/tvceff/j=3_csjul15/it=0/trn_indices_alph_omp_N=100_{i}_c0.csv').to_numpy().flatten()
+#                    val_ind_nw = pd.read_csv(f'{out_dir_ini}/ini/tvceff/j=3_csjul15/it=0/val_indices_alph_omp_N=100_{i}_c0.csv').to_numpy().flatten()
+                # elif i==1:  
+                #     trn_ind_nw = pd.read_csv(f'{out_dir_ini}/ini/ind/N=100/trn_indices_alph_omp_N=100_1_c0.csv').to_numpy().flatten()
+                #     val_ind_nw = pd.read_csv(f'{out_dir_ini}/ini/ind/N=100/val_indices_alph_omp_N=100_1_c0.csv').to_numpy().flatten()
+                # else:
+                #     trn_ind_nw = pd.read_csv(f'{out_dir_ini}/ini/ind/epsc_dec/trn_indices_alph_omp_N=200_1_c0.csv').to_numpy().flatten()
+                #     val_ind_nw = pd.read_csv(f'{out_dir_ini}/ini/ind/epsc_dec/val_indices_alph_omp_N=200_1_c0.csv').to_numpy().flatten()
+                df_trn_ind_nw = pd.DataFrame({'trn_ind_nw':trn_ind_nw})        
+                df_trn_ind_nw.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/trn_indices_alph_omp_N={N}_{i}_c{trc}_ivl{itvl_ind}.csv',index=False)
+                df_val_ind_nw = pd.DataFrame({'val_ind_nw':val_ind_nw})        
+                df_val_ind_nw.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/val_indices_alph_omp_N={N}_{i}_c{trc}_ivl{itvl_ind}.csv',index=False)
+                #==========================================================================
+                cost_uwt,cost_uwt_val,cost_rel,cost_val_rel,cost,cost_val,thet_f,thet_bst,zer_str,thet_dict1 = tnn.train_theta(
+                    torch.Tensor(np.abs(c_hat.flatten())), GNNmod, optimizer, thet_upd,thet_str,i, 
+                    torch.Tensor(mi_mat_in),epochs,Hid,trn_ind_nw,val_ind_nw,freq,W_fac[i])
+## TODo: see if this should be changed to thet_bst:So far not necessary!            
+                thet_upd = torch.Tensor(np.random.rand(z_n))
+# Write temp    orary variables:
+                if thet_f.requires_grad:
+                    print("Tensor with requires_grad=True")
+                cost_tmp[:,itvl_ind] = np.copy(cost)
+                cost_val_tmp[:,itvl_ind] = np.copy(cost_val) 
+                thet_f_tmp[:,itvl_ind] = torch.clone(thet_f)
+                thet_bst_tmp[:,itvl_ind] = torch.clone(thet_bst)
+                zer_str_tmp[:,itvl_ind] = np.copy(np.array(zer_str))
+# NOTE: New     changes:
+                ls_vlit_min[itvl_ind,i] = np.amin(cost_val) #append the changes.    
+            # write the tmp costs and all other values back into corresponding variables at minimum
+            # loss of all Nrp_vl iterations.
+            mn_vlls_ind = np.argmin(ls_vlit_min[:,i])
+            df_mnvlsind = pd.DataFrame({'mn_vlls_ind':mn_vlls_ind},index=[0])
+            df_mnvlsind.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/mn_vlls_ind_alph_omp_N={N}_{i}_c{trc}.csv',index=False)
+
+            cost = cost_tmp[:,mn_vlls_ind]
+            cost_val = cost_val_tmp[:,mn_vlls_ind]
+            thet_f = thet_f_tmp[:,mn_vlls_ind]
+            thet_bst = thet_bst_tmp[:,mn_vlls_ind]
+            if thet_f.requires_grad and thet_bst.requires_grad:
+                print("Thet_f and thet_bst requires grad")
+            zer_str = zer_str_tmp[:,mn_vlls_ind].tolist()
 #           nn.utils.vector_to_parameters(thet_upd, GNNmod.parameters())
 #            thet_dict = np.vstack((thet_dict,thet_upd.detach().numpy()))
 #            g_mod_ini = GNNmod(torch.Tensor(mi_mat_in)).detach().numpy().flatten()       
@@ -584,8 +649,8 @@ for j in j_rng:
             nn.utils.vector_to_parameters(thet_bst, GNNmod.parameters())
             #FIXME: Here I use different activation function for 4th iteration
             Gmod_bst = GNNmod(torch.Tensor(mi_mat),i).detach().numpy().flatten()
-#=================For randomly initializing \theta=================================            
-            nn.utils.vector_to_parameters(thet_upd, GNNmod.parameters())           
+#=================For randomly initializing \theta (I think it is redundant)=================================            
+#            nn.utils.vector_to_parameters(thet_upd, GNNmod.parameters())           
 #Test the idea of picking many basis functions and keeping only the most important:
            # Psi_test = pcu.make_Psi(y_data[optim_indices,:d],mi_mat,chc_Psi)
 #                import pdb; pdb.set_trace()
