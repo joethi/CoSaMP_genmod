@@ -13,13 +13,9 @@ import pandas as pd
 import torch.nn as nn
 import sys
 #sys.path.append('/home/jothi/CoSaMP_genNN')
-import genmod_mod_test.polynomial_chaos_utils as pcu
-from ray.air.checkpoint import Checkpoint
-from ray.air import session
+import genmod_mod.polynomial_chaos_utils as pcu
 from torch import linalg as LA
-from ray import tune
-import os
-import genmod_mod_test.Gmodel_NN as gnn
+import genmod_mod.Gmodel_NN as gnn
 #%% Train Model
 def loss_crit(ghat,g,W_fc,f_x,ind_vt):
     P = ghat.size(dim=0)
@@ -43,9 +39,10 @@ def loss_crit(ghat,g,W_fc,f_x,ind_vt):
     # L  = torch.sum(((ghat-g)**2))/(LA.norm(ghat)*torch.numel(G_ini))
     # Loss_crt = nn.MSELoss(reduction='sum')
     return L,Wt,L_uwt
-def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,H,t_ind,v_ind,freq,W_fc,actlist, Nlhid,cnfg_tn,chkpnt_dir=None,data_dir=None):
+def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,H,t_ind,v_ind,freq,W_fc,cnfg_tn,
+        chkpnt_dir=None,data_dir=None):
    # print("sys path:",sys.path)
-    #import pdb; pdb.set_trace()
+    
     cost = []
     zer_str = []
     cost_rel = []
@@ -59,7 +56,7 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,H,t_ind,v
     # cer_str = []
     # ter_str = []
     total=0
-    total_val_up = 1e8
+    total_val_up = 1e6
     G_omp = chat_omp[t_ind]
     alph_in = alph_in_tot[t_ind,:]
     G_omp_val = chat_omp[v_ind]
@@ -72,19 +69,18 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,H,t_ind,v
     a = 0
     b = torch.amax(chat_omp)
     c = 0.5
-    de = 30
+    d = 30
     P_fl = chat_omp.size(dim=0)
     f_x = torch.zeros(P_fl)
     for i in range(P_fl):                 
-        f_x[i] = c + (chat_omp[i]-a)*(de-c)/(b-a)        
+        f_x[i] = c + (chat_omp[i]-a)*(d-c)/(b-a)        
+    # d_in = 1
+    # G_upd_dict = np.zeros(P_in)
     # thet = thet_up.view(-1,1)
     #GNNmod = gnn.GenNN(d_in,H,1)
     #optimizer = torch.optim.Adam(GNNmod.parameters(), lr=learning_rate)
-    #import pdb; pdb.set_trace()
-    print(cnfg_tn.get('h0'))
-
-    GNNmod = gnn.GenNN([d_in] + [cnfg_tn.get(f'h{lyr}') for lyr in range(Nlhid)] +[1] )
-    #GNNmod = gnn.GenNN([d_in,cnfg_tn['Hid'],1])
+    import pdb; pdb.set_trace()
+    GNNmod = gnn.GenNN(d_in,cnfg_tn['Hid'],1)
     optimizer = torch.optim.Adam(GNNmod.parameters(), lr=cnfg_tn['lr'])
     for epoch in range(epochs):
         total=0
@@ -101,7 +97,7 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,H,t_ind,v
             nn.utils.vector_to_parameters(thet, GNNmod.parameters())
             # thet_i = thet.detach().numpy() #it is gonna keep changing the parameters even if it is defined for epoch=0.
             G_ini = G_omp        
-        G_NN = GNNmod(alph_in,actlist,Nt_ind).flatten()
+        G_NN = GNNmod(alph_in,Nt_ind).flatten()
         # G_NN_h = dmold.G_NN_nphrdcd(thet, alph_in,H)
         # print('G_NN',G_NN)
         # print('G_ver',G_ver)
@@ -128,7 +124,7 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,H,t_ind,v
         total=loss.item() 
         total_uwt = loss_uwt.item()
         # Validation Loss:
-        G_NN_val = GNNmod(alph_in_val,actlist,Nt_ind).flatten()            
+        G_NN_val = GNNmod(alph_in_val,Nt_ind).flatten()            
         loss_val, W_val,loss_uwt_val = loss_crit(G_omp_val,G_NN_val,W_fc,f_x,v_ind)
         total_val = loss_val.item()
         total_uwt_val = loss_uwt_val.item()
@@ -136,39 +132,30 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,H,t_ind,v
         thet_up_ep = nn.utils.parameters_to_vector(GNNmod.parameters())
         z_err = np.linalg.norm(thet_str1 - thet_up_ep.detach().numpy()) /np.linalg.norm(thet_str1)
         if epoch%freq==0:
-           cost.append(total)       
-           cost_abs.append(total)
-           cost_val.append(total_val)
-           cost_rel.append(total/la.norm(W_m*G_omp)**2)
-           cost_val_rel.append(total_val/la.norm(W_val*G_omp_val)**2)
-           cost_uwt.append(total_uwt)
-           cost_uwt_val.append(total_uwt_val)
-           zer_str.append(z_err)        
+            cost.append(total)       
+            cost_abs.append(total)
+            cost_val.append(total_val)
+            cost_rel.append(total/la.norm(W_m*G_omp)**2)
+            cost_val_rel.append(total_val/la.norm(W_val*G_omp_val)**2)
+            cost_uwt.append(total_uwt)
+            cost_uwt_val.append(total_uwt_val)
+            zer_str.append(z_err)        
         if total_val < total_val_up:
-           total_val_up = total_val #try to use torch.clone for copying.
+           total_val_up = total_val
            thet_bst = thet_up_ep
            ep_bst = epoch            
-        else: 
-           break
-        checkpoint = Checkpoint.from_dict({"epoch": epoch,"thet":thet_up_ep.detach().numpy()})
-        session.report({'loss_met':total_val,'train_loss':total,'z_err':z_err},checkpoint=checkpoint)
-           #with tune.checkpoint_dir(epoch) as checkpoint_dir:
-           #   path = os.path.join(checkpoint_dir, "checkpoint")
-           #   #print("path:",path)
-           #   torch.save((GNNmod.state_dict(), optimizer.state_dict()), path)
         # if epoch%1==0:
         # thet_dict1 = np.vstack((thet_dict1,thet_up_ep.detach().numpy()))   
         # debug=0
     thet_f = nn.utils.parameters_to_vector(GNNmod.parameters())
     print('epoch with minimum validation error:',ep_bst)
-    #session.report({'cost':cost,'cost_val':cost_val,'thet_f':thet_f,'thet_bst':thet_bst})
     # plt.figure(1)
     # # c = next(color)
     # # plt.semilogy(np.linspace(0,epochs-1,epochs),cost,c=c)
     # plt.semilogy(np.linspace(0,epochs-1,epochs),cost,label='cost_itr = %s' % i)    
     # plt.legend()
     # print('cost',cost)
-    #return {'cost':cost,'cost_val':cost_val,'thet_f':thet_f,'thet_bst':thet_bst}
+    return cost_uwt,cost_uwt_val,cost_rel,cost_val_rel,cost,cost_val,thet_f,thet_bst,zer_str,thet_dict1
 def val_test_err(data_tst,mi_mat_t,c):
     y_data  = data_tst['y_data']
     u_data  = data_tst['u_data']    
