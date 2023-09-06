@@ -54,9 +54,11 @@ class GenNN(nn.Module):
         self.hidden = nn.ModuleList()
         for l1,l2 in zip(Layers,Layers[1:]):
             self.hidden.append(nn.Linear(l1,l2))
+        print('Layers',Layers)    
     def forward(self,alpha,avtn_lst,it_ind):
         activation  = torch.clone(alpha)
         L = len(self.hidden)
+        print('L',L)
         for k,lin_map in zip(range(L),self.hidden):
             if k < L-1:
                 if avtn_lst[k] == 'None': 
