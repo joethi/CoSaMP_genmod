@@ -59,18 +59,21 @@ import warnings
 #import pdb;pdb.set_trace()
 parser = argparse.ArgumentParser(description='Parse the inputs such as output directory name, number of neurons, and so on...')
 parser.add_argument('--out_dir_ini',dest = 'out_dir_prs', type=str, help='specify out_dir_ini directory-it is the location of outputs similar to f\'../output/titan_ppr/results\'')
-parser.add_argument('--H',dest='N_Hid',type=int,help='number of hidden neurons')
-parser.add_argument('--S0',dest='S_0',type=int,help='Sparsity for p0')
-parser.add_argument('--Sh',dest='S_h',type=int,help='Sparsity for ph')
-parser.add_argument('--N',dest='N_smp',type=int,help='Number of samples')
-parser.add_argument('--Nv',dest='N_v',type=int,help='Number of validation samples')
-parser.add_argument('--Nt',dest='N_t',type=int,help='Number of total iterations')
-parser.add_argument('--Nrep',dest='N_rep',type=int,help='Number of sample replications')
-parser.add_argument('--Nlhid',dest='N_hid',type=int,help='Number of sample replications')
-parser.add_argument('--epochs',dest='ep',type=int,help='Number of epochs')
-parser.add_argument('--p_h',dest='ph',type=int,help='p_h')
-parser.add_argument('--p_0',dest='p0',type=int,help='p_0')
-parser.add_argument('--d',dest='dim',type=int,help='p_0')
+#parser.add_argument('--H',dest='N_Hid',default=10,type=int,help='number of hidden neurons')
+parser.add_argument('--S0',dest='S_0',default=9,type=int,help='Sparsity for p0')
+parser.add_argument('--Sh',dest='S_h',default=7,type=int,help='Sparsity for ph')
+parser.add_argument('--N',dest='N_smp',default=100,type=int,help='Number of samples')
+parser.add_argument('--Nv',dest='N_v',default=4000,type=int,help='Number of validation samples')
+parser.add_argument('--Nt',dest='N_t',default=1,type=int,help='Number of total iterations')
+parser.add_argument('--Nrep',dest='N_rep',default=1,type=int,help='Number of sample replications')
+parser.add_argument('--Nlhid',dest='N_hid',default=1,type=int,help='Number of sample replications')
+parser.add_argument('--epochs',dest='ep',default=1e4,type=int,help='Number of epochs')
+parser.add_argument('--p_h',dest='ph',default=3,type=int,help='p_h')
+parser.add_argument('--hub',dest='h_ubnd',default=22,type=int,help='p_h')
+parser.add_argument('--p_0',dest='p0',default=2,type=int,help='p_0')
+parser.add_argument('--d',dest='dim',default=21,type=int,help='d')
+parser.add_argument('--ntrial',dest='num_trl',default=10,type=int,help='num_trials')
+parser.add_argument('--ts',dest='tune_sig',default=0,type=int,help='tune signal')
 args = parser.parse_args()
 #test Ray remote function:
 #print(sys.path)
@@ -91,6 +94,7 @@ p_0 = args.p0
 d = args.dim  # Set smaller value of d for code to run faster
 S_omp = args.S_h
 S_omp0 = args.S_0
+num_trial = args.num_trl
 S_chs = 2*S_omp
 freq = 1 
 W_fac = [1.0,1.0,1.0,1.0,1.0]
@@ -98,6 +102,7 @@ sprsty = S_omp
 chc_eps = 'u'
 chc_Psi = 'Hermite'
 chc_omp_slv= 'stdomp'#'ompcv' #'stdomp' #FIXME  
+tune_sg = args.tune_sig
 pltdta = 0 #switch to 1 if data should be plotted.
 top_i1 = 3 #int(4*cini_nz_ln/5-ntpk_cr), ntpk_cr = top_i1. 4*cini_nz_ln/5 should be > ntpk_cr
 top_i0 = 3 
@@ -106,11 +111,12 @@ seed_ind = 1
 seed_thtini = 1
 sd_thtini_2nd = 3
 seed_ceff = 2
-Hid = args.N_Hid # number of neurons
+#Hid = args.N_Hid # number of neurons
 Nlhid = args.N_hid
-hid_layers = [tune.choice([7,d]) for __ in range(Nlhid)] 
+hid_layers = [tune.randint(7,args.h_ubnd) for __ in range(Nlhid)] 
 GNNmod_ini = gnn.GenNN([d] + [hid_layers[hly].sample() for hly in range(len(hid_layers))] +[1])
 z_n = sum(prm_NN.numel() for prm_NN in GNNmod_ini.state_dict().values())
+
 import pdb; pdb.set_trace()
 #Hid = hid_layers[:]
 #z_n = d * Hid  + 2*Hid + 1    
@@ -265,7 +271,7 @@ Nv = args.N_v
 Nrep = args.N_rep
 j_rng = range(Nrep) #range(Nrep) ---change this to run for a particular replication. Useful for debugging.
 #% Save parameters:
-opt_params = {'ph':p,'p0':p_0,'d':d,'H':Hid,'epochs':epochs,'lr':learning_rate,'Sh':sprsty,'S0':S_omp0,
+opt_params = {'ph':p,'p0':p_0,'d':d,'epochs':epochs,'lr':learning_rate,'Sh':sprsty,'S0':S_omp0,
         'N_t':tot_itr,'fr':freq,'W_fac':f'{W_fac}','z_n':z_n,'Tp_i1':top_i1,'Tp_i0':top_i0,'N':N,'Nv':Nv,'Nrep':Nrep,'Nc_rp':Nc_rp,'S_chs':S_chs,'chc_poly':chc_Psi,'sd_ind':seed_ind,'sd_thtini':seed_thtini,'sd_ceff':seed_ceff,'Nrp_vl':Nrp_vl,"sd_thtini_2nd":sd_thtini_2nd}
 #import pdb;pdb.set_trace() 
 df_params = pd.DataFrame(opt_params,index=[0])
@@ -607,7 +613,7 @@ for j in j_rng:
     opt_params['iterLasso'] = 1e5
     opt_params['epsLasso'] = 1e-10
     #% Save parameters:
-    opt_params = {'ph':p,'p0':p_0,'d':d,'H':Hid,'epochs':epochs,'lr':learning_rate,'S':sprsty,'S0':S_omp0,
+    opt_params = {'ph':p,'p0':p_0,'d':d,'epochs':epochs,'lr':learning_rate,'S':sprsty,'S0':S_omp0,
                   'tot_it':tot_itr,'fr':freq,'W_fac':f'{W_fac}'}
 #    import pdb;pdb.set_trace() 
     df_params = pd.DataFrame(opt_params,index=[0])
@@ -763,14 +769,15 @@ for j in j_rng:
                 print(":after scheduler:")
                 #reporter = CLIReporter(metric_columns=["loss_met",'training iteration']) 
                 print(":after reporter:")
-                import pdb;pdb.set_trace()
+               # import pdb;pdb.set_trace()
                 #FIXME: the training stops once the validation error starts increasing: sometimes, you might want to use more epochs. 
                 part_fnc = partial(tnn.train_theta,torch.Tensor(np.abs(c_hat.flatten())), thet_upd,thet_str,i, 
-                    torch.Tensor(mi_mat_in),epochs,Hid,trn_ind_nw,val_ind_nw,freq,W_fac[i],avtnlst,Nlhid)
+                    torch.Tensor(mi_mat_in),epochs,trn_ind_nw,val_ind_nw,freq,W_fac[i],avtnlst,Nlhid,tune_sg)
                 print(":after partfunc:")
                 #ray.init(runtime_env={"working_dir":"/home/jothi/CoSaMP_genNN","excludes":["/home/jothi/CoSaMP_genNN/output/**/*","/home/jothi/CoSaMP_genNN/data/**/*","/home/jothi/CoSaMP_genNN/.git/**/*"]})
                 #result = tune.run(part_fnc, config=config_tune, scheduler=scheduler, progress_reporter=reporter,verbose=0)
-                tuner = tune.Tuner(part_fnc, tune_config=tune.TuneConfig(metric='loss_met', mode='min',scheduler=scheduler), param_space=config_tune)
+                tuner = tune.Tuner(part_fnc, tune_config=tune.TuneConfig(metric='loss_met', mode='min',scheduler=scheduler,num_samples=num_trial), param_space=config_tune)
+                import pdb;pdb.set_trace()
                 print(":after results:")
                 result = tuner.fit() 
                 #result_df = result.get_dataframe() 
