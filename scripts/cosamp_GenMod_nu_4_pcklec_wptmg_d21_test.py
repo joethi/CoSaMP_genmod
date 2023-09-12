@@ -67,13 +67,15 @@ parser.add_argument('--Nv',dest='N_v',default=4000,type=int,help='Number of vali
 parser.add_argument('--Nt',dest='N_t',default=1,type=int,help='Number of total iterations')
 parser.add_argument('--Nrep',dest='N_rep',default=1,type=int,help='Number of sample replications')
 parser.add_argument('--Nlhid',dest='N_hid',default=1,type=int,help='Number of sample replications')
-parser.add_argument('--epochs',dest='ep',default=1e4,type=int,help='Number of epochs')
+parser.add_argument('--epochs',dest='ep',default=15000,type=int,help='Number of epochs')
+parser.add_argument('--iter_fix',dest='it_fix',default=9999,type=int,help='Number of epochs')
 parser.add_argument('--p_h',dest='ph',default=3,type=int,help='p_h')
 parser.add_argument('--hub',dest='h_ubnd',default=22,type=int,help='p_h')
 parser.add_argument('--p_0',dest='p0',default=2,type=int,help='p_0')
 parser.add_argument('--d',dest='dim',default=21,type=int,help='d')
 parser.add_argument('--ntrial',dest='num_trl',default=10,type=int,help='num_trials')
-parser.add_argument('--ts',dest='tune_sig',default=0,type=int,help='tune signal')
+parser.add_argument('--plot_dat',dest='plot_dat',default=0,type=int,help='plot u data?')
+parser.add_argument('--ts',dest='tune_sig',default=1,type=int,help='tune signal-0 is for debugging single layer network-errors out when you use 2 layers and ts 0 concurrently')
 args = parser.parse_args()
 #test Ray remote function:
 #print(sys.path)
@@ -103,7 +105,7 @@ chc_eps = 'u'
 chc_Psi = 'Hermite'
 chc_omp_slv= 'stdomp'#'ompcv' #'stdomp' #FIXME  
 tune_sg = args.tune_sig
-pltdta = 0 #switch to 1 if data should be plotted.
+pltdta = args.plot_dat #switch to 1 if data should be plotted.
 top_i1 = 3 #int(4*cini_nz_ln/5-ntpk_cr), ntpk_cr = top_i1. 4*cini_nz_ln/5 should be > ntpk_cr
 top_i0 = 3 
 #Seed values:
@@ -111,13 +113,14 @@ seed_ind = 1
 seed_thtini = 1
 sd_thtini_2nd = 3
 seed_ceff = 2
+random.seed(seed_ind) # FIXME set seeding for reproducibility/debugging purposes.
 #Hid = args.N_Hid # number of neurons
 Nlhid = args.N_hid
 hid_layers = [tune.randint(7,args.h_ubnd) for __ in range(Nlhid)] 
 GNNmod_ini = gnn.GenNN([d] + [hid_layers[hly].sample() for hly in range(len(hid_layers))] +[1])
 z_n = sum(prm_NN.numel() for prm_NN in GNNmod_ini.state_dict().values())
 
-import pdb; pdb.set_trace()
+#import pdb; pdb.set_trace()
 #Hid = hid_layers[:]
 #z_n = d * Hid  + 2*Hid + 1    
 out_dir_ini = args.out_dir_prs
@@ -264,12 +267,16 @@ ecmn_ind = 0
 # sprsty = 5  #Think about giving sparsity=1, some matrix manipulations might get affected.
 learning_rate = 0.001
 epochs = args.ep
-avtnlst =['None' for a_m in range(Nlhid)]#[nn.Sigmoid()] # for the final layer by default exp decay is enforced, so the size is number of layers-1.
+#avtnlst =['None' for a_m in range(Nlhid)]#[nn.Sigmoid()] # for the final layer by default exp decay is enforced, so the size is number of layers-1.
+avtnlst =['None'  if tune_sg==0 else tune.choice(['None',nn.Sigmoid(),nn.ReLU()]) for a_m in range(Nlhid)] #[nn.Sigmoid()] # for the final layer by default exp decay is enforced, so the size is number of layers-1.
+
+#import pdb; pdb.set_trace()
+#avtnlst = ['None',nn.Sigmoid(),nn.Relu()]
 #%% Write index file:
 N = args.N_smp  # note that you need more samples than sparsity for least squares.
 Nv = args.N_v
 Nrep = args.N_rep
-j_rng = range(Nrep) #range(Nrep) ---change this to run for a particular replication. Useful for debugging.
+j_rng =range(Nrep) #range(Nrep) ---change this to run for a particular replication. Useful for debugging.
 #% Save parameters:
 opt_params = {'ph':p,'p0':p_0,'d':d,'epochs':epochs,'lr':learning_rate,'Sh':sprsty,'S0':S_omp0,
         'N_t':tot_itr,'fr':freq,'W_fac':f'{W_fac}','z_n':z_n,'Tp_i1':top_i1,'Tp_i0':top_i0,'N':N,'Nv':Nv,'Nrep':Nrep,'Nc_rp':Nc_rp,'S_chs':S_chs,'chc_poly':chc_Psi,'sd_ind':seed_ind,'sd_thtini':seed_thtini,'sd_ceff':seed_ceff,'Nrp_vl':Nrp_vl,"sd_thtini_2nd":sd_thtini_2nd}
@@ -283,12 +290,13 @@ fw = csv.writer(f)
 header =[*["optim"] * (int(N * 4 / 5)), *["optim"] * (int(N / 5))]
 np.size(header)
 fw.writerow(header)
-random.seed(seed_ind) # set seeding for reproducibility/debugging purposes.
+#random.seed(seed_ind) # set seeding for reproducibility/debugging purposes#FIXME seed place..
 for i in range(Nrep):
  fw.writerow(random.sample(range(N_rndsmp), N))
 f.close()
 # FIXME: HARDCODING:
-index_file = f'{out_dir_ini}/plots/1dellps_indices_n={N}_ini.csv'
+#index_file = f'{out_dir_ini}/plots/1dellps_indices_n={N}_ini.csv'
+#index_file =f'/home/jothi/CoSaMP_genNN/output/titan_ppr/results/csaug13/d=21/p=3/ref_data/1dellps_indices_n=100_ini.csv' 
 #index_file = f'{out_dir_ini}/ini/ind/indices_CoSaMP_N=100_Jul15.csv'
 #
 indices0 = pd.read_csv(index_file)
@@ -434,6 +442,18 @@ for j in j_rng:
 #test the validation error of another coefficient:
 
 #======================================================================================
+#============Apply least squares for the particular active set=========================
+#======================================================================================
+    #Lam_ls =[0,21,2,4,3,82,16,99] #top-10: [ 0 21  2  4  3 82 16 20 18 99]
+    #c_ls = np.zeros(P)
+    #Psi = pcu.make_Psi_drn(y_data[optim_indices,:],mi_mat,Lam_ls,chc_Psi)     
+    #Psi_T = np.transpose(Psi)
+    #c_ls_sht = (la.inv(Psi_T @ Psi) @ Psi_T @ u_data[optim_indices]).flatten()
+    #c_ls[Lam_ls] = c_ls_sht
+    #print('c_ls',c_ls)
+    #trn_err_ls, valid_err_ls = tnn.val_test_err(data_tst,mi_mat,c_ls)
+    #import pdb; pdb.set_trace()
+#======================================================================================
 #======================================================================================
 #======================================================================================
 #======================================================================================
@@ -524,7 +544,7 @@ for j in j_rng:
 #======================================================================================
    
     c_ini, S_omp0, train_err_p0, valid_err_p0,P_omp,mi_mat_omp, Psi_omp = omu.omp_utils_lower_order_ph(out_dir_ini,d,p_0,y_data,u_data,data_tst,optim_indices,chc_Psi,chc_omp_slv,S_omp0,j)
-    #import pdb;pdb.set_trace()
+    import pdb;pdb.set_trace()
 #   
 ##Calculate S for 0 and h:
 #    if chc_eps == 'c':
@@ -688,6 +708,7 @@ for j in j_rng:
     config_tune = {'lr':tune.choice([learning_rate])}
     for layer in range(len(hid_layers)): 
         config_tune[f'h{layer}'] = hid_layers[layer]  
+        config_tune[f'a{layer}'] = avtnlst[layer] 
     #import pdb; pdb.set_trace()    
     #initalize i:    
     i = 0
@@ -698,11 +719,11 @@ for j in j_rng:
         # optimizer = torch.optim.SGD(GNNmod.parameters(), lr=learning_rate)        
         #optimizer = torch.optim.Adam(GNNmod.parameters(), lr=learning_rate)
         #cost_val_tmp = np.zeros((int(epochs/freq),Nrp_vl)) 
-        #cost_tmp = np.zeros_like(cost_val_tmp)
+        #cost_tmp = np.zeros_like(cost_val_tmt_
         #thet_f_tmp = np.zeros((z_n,Nrp_vl))
-        cost_val_tmp = {}
-        cost_tmp = {}
-        thet_bst_tmp = {}
+        #cost_val_tmp = {}
+        #cost_tmp = {}
+        #thet_bst_tmp = {}
         #thet_f_tmp = torch.zeros((z_n,Nrp_vl))
         #thet_bst_tmp = torch.zeros((z_n,Nrp_vl))
         #zer_str_tmp = np.zeros_like(cost_tmp)
@@ -722,132 +743,149 @@ for j in j_rng:
             cini_nz_ln = np.size(cini_nz) 
             cini_z = np.setdiff1d(range(P_alg),cini_nz)
             cini_z_ln = np.size(cini_z)
+            print('cini_nz',cini_nz)
             #get training indices such that 4-5ths of nonzeros are retained:
             # trn_ind_nz = random.sample(cini_nz.tolist(), int(4*cini_nz_ln/5)) 
             # trn_ind_z = random.sample(cini_z.tolist(),int(4*cini_z_ln/5))
             # trn_ind_nw = np.concatenate((trn_ind_nz,trn_ind_z),axis=None)
             #to include/exclude top 10 coefficients in the validation/training sets:
             cini_sbmind = np.setdiff1d(cini_nz,cr_mxind)
+            print('cini_sbmind',cini_sbmind)
+            print('cr_mxind',cr_mxind)
             ntpk_cr = np.size(cr_mxind)
             random.seed(seed_ceff+j)
-            for itvl_ind in range(Nrp_vl):
-                trn_ind_nz = random.sample(cini_sbmind.tolist(), int(4*cini_nz_ln/5-ntpk_cr)) #to include all top 10.
-                # trn_ind_nz = random.sample(cini_sbmind.tolist(), int(4*cini_nz_ln/5)) 
-                trn_ind_z = random.sample(cini_z.tolist(),int(4*cini_z_ln/5))
-                # trn_ind_nw = np.concatenate((trn_ind_nz,trn_ind_z),axis=None) 
-                trn_ind_nw = np.concatenate((cr_mxind,trn_ind_nz,trn_ind_z),axis=None)
-                #Test indices: 
-                # trn_ind_nw = random.sample(range(P_alg), int(4*P_alg/5))
-        
-                df_trn_ind_nw = pd.DataFrame({'trn_ind_nw':trn_ind_nw})        
-                df_trn_ind_nw.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/trn_indices_alph_omp_N={N}_{i}_c{trc}_ivl{itvl_ind}.csv',index=False)
-                # Validation indices:    
-                val_ind_nw = np.setdiff1d(np.linspace(0,P_alg-1,P_alg),trn_ind_nw)
-                df_val_ind_nw = pd.DataFrame({'val_ind_nw':val_ind_nw})        
-                df_val_ind_nw.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/val_indices_alph_omp_N={N}_{i}_c{trc}_ivl{itvl_ind}.csv',index=False)
-                #==========================================================================
-                #read val,train indices:
-#                if i==0:               
-#                    # FIXME: HARDCODING:
-#                    trn_ind_nw = pd.read_csv(f'{out_dir_ini}/ini/tvceff/j=3_csjul15/it=0/trn_indices_alph_omp_N=100_{i}_c0.csv').to_numpy().flatten()
-#                    val_ind_nw = pd.read_csv(f'{out_dir_ini}/ini/tvceff/j=3_csjul15/it=0/val_indices_alph_omp_N=100_{i}_c0.csv').to_numpy().flatten()
-                # elif i==1:  
-                #     trn_ind_nw = pd.read_csv(f'{out_dir_ini}/ini/ind/N=100/trn_indices_alph_omp_N=100_1_c0.csv').to_numpy().flatten()
-                #     val_ind_nw = pd.read_csv(f'{out_dir_ini}/ini/ind/N=100/val_indices_alph_omp_N=100_1_c0.csv').to_numpy().flatten()
-                # else:
-                #     trn_ind_nw = pd.read_csv(f'{out_dir_ini}/ini/ind/epsc_dec/trn_indices_alph_omp_N=200_1_c0.csv').to_numpy().flatten()
-                #     val_ind_nw = pd.read_csv(f'{out_dir_ini}/ini/ind/epsc_dec/val_indices_alph_omp_N=200_1_c0.csv').to_numpy().flatten()
-                #df_trn_ind_nw = pd.DataFrame({'trn_ind_nw':trn_ind_nw})        
-                #df_trn_ind_nw.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/trn_indices_alph_omp_N={N}_{i}_c{trc}_ivl{itvl_ind}.csv',index=False)
-                #df_val_ind_nw = pd.DataFrame({'val_ind_nw':val_ind_nw})        
-                #df_val_ind_nw.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/val_indices_alph_omp_N={N}_{i}_c{trc}_ivl{itvl_ind}.csv',index=False)
-                #========================================================================
-                #Ray tune Tuning:
-                #========================================================================
-               # scheduler = ASHAScheduler(metric='loss_met', mode='min', max_t=epochs,grace_period=1,reduction_factor=2) 
-                scheduler = AsyncHyperBandScheduler(max_t=epochs,grace_period=1,reduction_factor=2) 
-                print(":after scheduler:")
-                #reporter = CLIReporter(metric_columns=["loss_met",'training iteration']) 
-                print(":after reporter:")
-               # import pdb;pdb.set_trace()
-                #FIXME: the training stops once the validation error starts increasing: sometimes, you might want to use more epochs. 
-                part_fnc = partial(tnn.train_theta,torch.Tensor(np.abs(c_hat.flatten())), thet_upd,thet_str,i, 
-                    torch.Tensor(mi_mat_in),epochs,trn_ind_nw,val_ind_nw,freq,W_fac[i],avtnlst,Nlhid,tune_sg)
-                print(":after partfunc:")
-                #ray.init(runtime_env={"working_dir":"/home/jothi/CoSaMP_genNN","excludes":["/home/jothi/CoSaMP_genNN/output/**/*","/home/jothi/CoSaMP_genNN/data/**/*","/home/jothi/CoSaMP_genNN/.git/**/*"]})
-                #result = tune.run(part_fnc, config=config_tune, scheduler=scheduler, progress_reporter=reporter,verbose=0)
-                tuner = tune.Tuner(part_fnc, tune_config=tune.TuneConfig(metric='loss_met', mode='min',scheduler=scheduler,num_samples=num_trial), param_space=config_tune)
-                import pdb;pdb.set_trace()
-                print(":after results:")
-                result = tuner.fit() 
-                #result_df = result.get_dataframe() 
-                #cost = result_df['train_loss'] 
-                print("Best hyperparameters found were: ", result.get_best_result().config)
-                best_result = result.get_best_result()
-                best_config = best_result.config
-                GNNmod = gnn.GenNN([d] + [best_config.get(f'h{lyr}') for lyr in range(Nlhid)] +[1])
-                best_result_df = best_result.metrics_dataframe
-                cost = best_result_df['train_loss'].to_numpy().flatten() 
-                cost_val = best_result_df['loss_met'].to_numpy().flatten() 
-                #zer_str = best_result_df['z_err'].to_numpy().flatten() 
-                #best_trial = result.get_best_trial("loss_met", "min", "last")
-                #best_trained_model = gnn.GenNN(d,best_trial.config['Hid'],1)
-                #print(":after best trial:")
-                #print("Best trial config: {}".format(best_trial.config))
-                #print("Best trial final validation loss: {}".format(
-                #              best_trial.last_result["loss_met"]))
-                #best_trial.last_result.get("trn_op_dict")
-                #import pdb; pdb.set_trace()
-                #retrieve the best model:
-                best_checkpoint = best_result.checkpoint  
-                best_chckpnt_dict = best_checkpoint.to_dict() 
-                thet_bst = best_chckpnt_dict.get("thet")      
-                #retrives final checkpoint:
-                #FIXedME: some hardcoding:
-                #bcpt_path = best_checkpoint.path
-                #index_cpt = bcpt_path.find("checkpoint_") 
-                #index_uscr = index_cpt+len("checkpoint_")
-                #add_strng_pth =  str(epochs-1).zfill(len(bcpt_path[index_uscr:]))
-                #final_path = bcpt_path[:index_uscr] +add_strng_pth 
-                #fnl_cptdir  = Checkpoint.from_directory(final_path)   
-                #fnl_cpt_dict = fnl_cptdir.to_dict()
-                #thet_f = fnl_cpt_dict.get("thet")
-                #final_checkpoint = 
-                
-                ##retrieve the best model:
-                #best_checkpoint_dir = best_trial.checkpoint.value
-                #model_state, optimizer_state = torch.load(os.path.join(
-                #best_checkpoint_dir, "checkpoint"))
-                #best_trained_model.load_state_dict(model_state)
-                #==========================================================================
-               # cost_uwt,cost_uwt_val,cost_rel,cost_val_rel,cost,cost_val,thet_f,thet_bst,zer_str,thet_dict1 = tnn.train_theta(torch.Tensor(np.abs(c_hat.flatten())), thet_upd,thet_str,i, 
-               #     torch.Tensor(mi_mat_in),epochs,Hid,trn_ind_nw,val_ind_nw,freq,W_fac[i],config_tune)
+            rnd_smp_dict = {'cr_mxind':cr_mxind,'cini_sbmind':cini_sbmind,'cini_nz_ln':cini_nz_ln,'cini_z':cini_z,'ntpk_cr':ntpk_cr,'cini_z_ln':cini_z_ln,'cini_nz':cini_nz}
+            #for itvl_ind in range(Nrp_vl):
+            #trn_ind_nz = random.sample(cini_sbmind.tolist(), int(4*cini_nz_ln/5-ntpk_cr)) #to include all top 10.
+            #print('trn_ind_nz',trn_ind_nz)
+            ##trn_ind_nz = random.sample(cini_sbmind.tolist(), int(4*cini_nz_ln/5)) 
+            #trn_ind_z = random.sample(cini_z.tolist(),int(4*cini_z_ln/5))
+            #added lines to be uncommented
+            #=============================================================
+            config_tune['tind_nz'] = tune.sample_from(lambda _: random.sample(cini_sbmind.tolist(), int(4*cini_nz_ln/5-ntpk_cr)))
+
+            config_tune['tind_z'] =  tune.sample_from(lambda _: random.sample(cini_z.tolist(),int(4*cini_z_ln/5)))
+            print('config_tune',config_tune)
+            #=============================================================
+            # trn_ind_nw = np.concatenate((trn_ind_nz,trn_ind_z),axis=None) 
+            #trn_ind_nw = np.concatenate((cr_mxind,trn_ind_nz,trn_ind_z),axis=None)
+            #Test indices: 
+            # trn_ind_nw = random.sample(range(P_alg), int(4*P_alg/5))
+    
+            #df_trn_ind_nw = pd.DataFrame({'trn_ind_nw':trn_ind_nw})        
+            #df_trn_ind_nw.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/trn_indices_alph_omp_N={N}_{i}_c{trc}.csv',index=False)
+            ## Validation indices:    
+            #val_ind_nw = np.setdiff1d(np.linspace(0,P_alg-1,P_alg),trn_ind_nw)
+            #df_val_ind_nw = pd.DataFrame({'val_ind_nw':val_ind_nw})        
+            #df_val_ind_nw.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/val_indices_alph_omp_N={N}_{i}_c{trc}.csv',index=False)
+            #==========================================================================
+            #read val,train indices:
+            #if i==0:               
+            #    # FIXME: HARDCODING:
+            #    trn_ind_nw = pd.read_csv(f'/home/jothi/CoSaMP_genNN/output/titan_ppr/results/csaug13/d=21/p=3/ref_data/trn_indices_alph_omp_N=100_0_c0_ivl0.csv').to_numpy().flatten()
+            #    val_ind_nw = pd.read_csv(f'/home/jothi/CoSaMP_genNN/output/titan_ppr/results/csaug13/d=21/p=3/ref_data/val_indices_alph_omp_N=100_0_c0_ivl0.csv').to_numpy().flatten()
+            # elif i==1:  
+            #     trn_ind_nw = pd.read_csv(f'{out_dir_ini}/ini/ind/N=100/trn_indices_alph_omp_N=100_1_c0.csv').to_numpy().flatten()
+            #     val_ind_nw = pd.read_csv(f'{out_dir_ini}/ini/ind/N=100/val_indices_alph_omp_N=100_1_c0.csv').to_numpy().flatten()
+            # else:
+            #     trn_ind_nw = pd.read_csv(f'{out_dir_ini}/ini/ind/epsc_dec/trn_indices_alph_omp_N=200_1_c0.csv').to_numpy().flatten()
+            #     val_ind_nw = pd.read_csv(f'{out_dir_ini}/ini/ind/epsc_dec/val_indices_alph_omp_N=200_1_c0.csv').to_numpy().flatten()
+            #df_trn_ind_nw = pd.DataFrame({'trn_ind_nw':trn_ind_nw})        
+            #df_trn_ind_nw.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/trn_indices_alph_omp_N={N}_{i}_c{trc}_ivl{itvl_ind}.csv',index=False)
+            #df_val_ind_nw = pd.DataFrame({'val_ind_nw':val_ind_nw})        
+            #df_val_ind_nw.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/val_indices_alph_omp_N={N}_{i}_c{trc}_ivl{itvl_ind}.csv',index=False)
+            #========================================================================
+            #Ray tune Tuning:
+            #========================================================================
+           # scheduler = ASHAScheduler(metric='loss_met', mode='min', max_t=epochs,grace_period=1,reduction_factor=2) 
+            scheduler = AsyncHyperBandScheduler(max_t=epochs,grace_period=1,reduction_factor=2) 
+            print(":after scheduler:")
+            #reporter = CLIReporter(metric_columns=["loss_met",'training iteration']) 
+            print(":after reporter:")
+           # import pdb;pdb.set_trace()
+            #FIXME: the training stops once the validation error starts increasing: sometimes, you might want to use more epochs. 
+            part_fnc = partial(tnn.train_theta,torch.Tensor(np.abs(c_hat.flatten())), thet_upd,thet_str,i, 
+                torch.Tensor(mi_mat_in),epochs,freq,W_fac[i],avtnlst,Nlhid,tune_sg,args.it_fix,rnd_smp_dict)
+            print(":after partfunc:")
+            #ray.init(runtime_env={"working_dir":"/home/jothi/CoSaMP_genNN","excludes":["/home/jothi/CoSaMP_genNN/output/**/*","/home/jothi/CoSaMP_genNN/data/**/*","/home/jothi/CoSaMP_genNN/.git/**/*"]})
+            #result = tune.run(part_fnc, config=config_tune, scheduler=scheduler, progress_reporter=reporter,verbose=0)
+            #tuner = tune.Tuner(tune.with_resources(part_fnc,{"cpu":20}), tune_config=tune.TuneConfig(metric='loss_met', mode='min',scheduler=scheduler,num_samples=num_trial), param_space=config_tune)
+            tuner = tune.Tuner(part_fnc, tune_config=tune.TuneConfig(metric='loss_met', mode='min',scheduler=scheduler,num_samples=num_trial), param_space=config_tune)
+            #import pdb;pdb.set_trace()
+            print(":after results:")
+            result = tuner.fit() 
+            #result_df = result.get_dataframe() 
+            #best_h_params = result.get_best_result().configcost = result_df['train_loss']
+            #best_h_params = result.get_best_result().config 
+            best_result = result.get_best_result()
+            best_config = best_result.config
+            print("Best hyperparameters found were: ",best_config)
+            GNNmod = gnn.GenNN([d] + [best_config.get(f'h{lyr}') for lyr in range(Nlhid)] +[1])
+            best_result_df = best_result.metrics_dataframe
+            best_epoch = best_result_df['ep_best'].to_numpy().flatten() 
+            #cost = best_result_df['train_loss'].to_numpy().flatten() 
+            #cost_val = best_result_df['loss_met'].to_numpy().flatten() 
+            #zer_str = best_result_df['z_err'].to_numpy().flatten() 
+            #best_trial = result.get_best_trial("loss_met", "min", "last")
+            #best_trained_model = gnn.GenNN(d,best_trial.config['Hid'],1)
+            #print(":after best trial:")
+            #print("Best trial config: {}".format(best_trial.config))
+            #print("Best trial final validation loss: {}".format(
+            #              best_trial.last_result["loss_met"]))
+            #best_trial.last_result.get("trn_op_dict")
+            #import pdb; pdb.set_trace()
+            #retrieve the best model:
+            best_checkpoint = best_result.checkpoint  
+            best_chckpnt_dict = best_checkpoint.to_dict() 
+            thet_bst = best_chckpnt_dict.get("thet")      
+            cost = best_chckpnt_dict.get("train_app")      
+            cost_val = best_chckpnt_dict.get("val_app")      
+            #retrives final checkpoint:
+            #FIXedME: some hardcoding:
+            #bcpt_path = best_checkpoint.path
+            #index_cpt = bcpt_path.find("checkpoint_") 
+            #index_uscr = index_cpt+len("checkpoint_")
+            #add_strng_pth =  str(epochs-1).zfill(len(bcpt_path[index_uscr:]))
+            #final_path = bcpt_path[:index_uscr] +add_strng_pth 
+            #fnl_cptdir  = Checkpoint.from_directory(final_path)   
+            #fnl_cpt_dict = fnl_cptdir.to_dict()
+            #thet_f = fnl_cpt_dict.get("thet")
+            #final_checkpoint = 
+            
+            ##retrieve the best model:
+            #best_checkpoint_dir = best_trial.checkpoint.value
+            #model_state, optimizer_state = torch.load(os.path.join(
+            #best_checkpoint_dir, "checkpoint"))
+            #best_trained_model.load_state_dict(model_state)
+            #==========================================================================
+           # cost_uwt,cost_uwt_val,cost_rel,cost_val_rel,cost,cost_val,thet_f,thet_bst,zer_str,thet_dict1 = tnn.train_theta(torch.Tensor(np.abs(c_hat.flatten())), thet_upd,thet_str,i, 
+           #     torch.Tensor(mi_mat_in),epochs,Hid,trn_ind_nw,val_ind_nw,freq,W_fac[i],config_tune)
 ## TODo: see if this should be changed to thet_bst:So far not necessary!            
-                import pdb; pdb.set_trace()
-                #FIXME:seeding for initializing theta in the next iteration
-                np.random.seed(i+sd_thtini_2nd)
-                thet_upd = torch.Tensor(np.random.rand(z_n))
+            import pdb; pdb.set_trace()
+            #FIXME:seeding for initializing theta in the next iteration
+            np.random.seed(i+sd_thtini_2nd)
+            thet_upd = torch.Tensor(np.random.rand(z_n))
 # Write temp    orary variables:
                 #if thet_f.requires_grad:
                 #    print("Tensor with requires_grad=True")
-                cost_tmp[f'{itvl_ind}'] = np.copy(cost)
-                cost_val_tmp[f'{itvl_ind}']= np.copy(cost_val) 
-                #thet_f_tmp[:,itvl_ind] = np.copy(thet_f)
-                thet_bst_tmp[f'{itvl_ind}']= np.copy(thet_bst)
+                #cost_tmp[f'{itvl_ind}'] = np.copy(cost)
+                #cost_val_tmp[f'{itvl_ind}']= np.copy(cost_val) 
+                ##thet_f_tmp[:,itvl_ind] = np.copy(thet_f)
+                #thet_bst_tmp[f'{itvl_ind}']= np.copy(thet_bst)
                 #thet_f_tmp[:,itvl_ind] = torch.clone(thet_f)
                 #thet_bst_tmp[:,itvl_ind] = torch.clone(thet_bst)
 # NOTE: New     changes:
-                ls_vlit_min[itvl_ind,i] = np.amin(cost_val) #append the changes.    
+                #ls_vlit_min[itvl_ind,i] = np.amin(cost_val) #append the changes.    
             # write the tmp costs and all other values back into corresponding variables at minimum
             # loss of all Nrp_vl iterations.
-            mn_vlls_ind = np.argmin(ls_vlit_min[:,i])
-            df_mnvlsind = pd.DataFrame({'mn_vlls_ind':mn_vlls_ind},index=[0])
-            df_mnvlsind.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/mn_vlls_ind_alph_omp_N={N}_{i}_c{trc}.csv',index=False)
+            #mn_vlls_ind = np.argmin(ls_vlit_min[:,i])
+            #df_mnvlsind = pd.DataFrame({'mn_vlls_ind':mn_vlls_ind},index=[0])
+            #df_mnvlsind.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/mn_vlls_ind_alph_omp_N={N}_{i}_c{trc}.csv',index=False)
 
-            cost = cost_tmp[f'{mn_vlls_ind}']
-            cost_val = cost_val_tmp[f'{mn_vlls_ind}']
-            #thet_f = thet_f_tmp[:,mn_vlls_ind]
-            thet_bst = thet_bst_tmp[f'{mn_vlls_ind}']
+            #cost = cost_tmp[f'{mn_vlls_ind}']
+            #cost_val = cost_val_tmp[f'{mn_vlls_ind}']
+            ##thet_f = thet_f_tmp[:,mn_vlls_ind]
+            #thet_bst = thet_bst_tmp[f'{mn_vlls_ind}']
             #if thet_f.requires_grad and thet_bst.requires_grad:
             #    print("Thet_f and thet_bst requires grad")
             #zer_str = zer_str_tmp[:,mn_vlls_ind].tolist()
@@ -862,7 +900,7 @@ for j in j_rng:
 #====================NOTe HERE thet_upd was there in the place of thet_bst=========            
             nn.utils.vector_to_parameters(torch.Tensor(thet_bst), GNNmod.parameters())
             #FIXME: Here I use different activation function for 4th iteration
-            Gmod_bst = GNNmod(torch.Tensor(mi_mat),avtnlst,i).detach().numpy().flatten()
+            Gmod_bst = GNNmod(torch.Tensor(mi_mat),[best_config.get(f'a{lyr1}') for lyr1 in range(Nlhid)],i).detach().numpy().flatten()
 #=================For randomly initializing \theta (I think it is redundant)=================================            
 #            nn.utils.vector_to_parameters(thet_upd, GNNmod.parameters())           
 #Test the idea of picking many basis functions and keeping only the most important:
@@ -879,13 +917,14 @@ for j in j_rng:
                 Lambda_sel_tmp = (np.argsort(Gmod_bst)[::-1])[:S_chs]
                 Lam_pr_bst  = pd.read_csv(f'{out_dir_ini}/plots/j={j}/it={i-1}/Lam_bst_1dellps_n={N}_genmod_S={sprsty}_{i-1}_j{j}_c{trc}.csv')['Lam_bst'].to_numpy().flatten()
                 Lambda_sel = np.union1d(Lambda_sel_tmp,Lam_pr_bst)
-            import pdb; pdb.set_trace()
+            #import pdb; pdb.set_trace()
             Psi_active_bst = pcu.make_Psi_drn(y_data[optim_indices,:d],mi_mat,Lambda_sel.tolist(),chc_Psi)
             Psi_active_bst_T = np.transpose(Psi_active_bst)
             c_hat_bst = (la.inv(Psi_active_bst_T @ Psi_active_bst) @ Psi_active_bst_T @ u_data[optim_indices]).flatten()
             c_omp_sel[Lambda_sel] = c_hat_bst
             Lambda_bst = (np.argsort(np.abs(c_omp_sel))[::-1])[:sprsty]
             c_omp_bst[Lambda_bst] = c_omp_sel[Lambda_bst]
+#FIXME do least squares using Lambda_bst instead of selecting from the already chosen one:  
             test_err_bst, valid_err_bst = tnn.val_test_err(data_tst,mi_mat,c_omp_bst)
 #%%====================calculate the omp coefficients on the residual signal================
             Lambda_bst_mp = [i_mp for i_mp,vl_lmbst in enumerate(Lambda_sel) if vl_lmbst in Lambda_bst]
@@ -906,14 +945,22 @@ for j in j_rng:
 # and rewrite the coeffs so that the remaining code is undisturbed:  
 #            import pdb; pdb.set_trace()
             # eps_c.append(la.norm(c_omp_bst - c_ref)/la.norm(c_ref))
-            # if i==0:
-            #     eps_ctmp[trc] = la.norm(c_omp_bst - c_ref)/la.norm(c_ref)
+  # if i==0:
+#     eps_ctmp[trc] = la.norm(c_omp_bst - c_ref)/la.norm(c_ref)
             # else:
             if chc_eps =='u':
                 epsu_tmp[trc] = valid_err_bst
             elif chc_eps =='c':                  
                 eps_ctmp[trc] = la.norm(c_omp_bst - c_ref)                
+            trn_ind_nw = np.concatenate((cr_mxind,np.array(best_config.get("tind_nz")),np.array(best_config.get("tind_z"))),axis=None)
+            df_trn_ind_nw = pd.DataFrame({'trn_ind_nw':trn_ind_nw})        
+            df_trn_ind_nw.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/trn_indices_alph_omp_N={N}_{i}_c{trc}.csv',index=False)
+            val_ind_nw = np.setdiff1d(np.linspace(0,P_alg-1,P_alg),trn_ind_nw)
+            df_val_ind_nw = pd.DataFrame({'val_ind_nw':val_ind_nw})        
+            df_val_ind_nw.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/val_indices_alph_omp_N={N}_{i}_c{trc}.csv',index=False)
             #%% Write stuff:
+            df_b_params = pd.DataFrame({key_cfg:val_cfg for key_cfg,val_cfg in best_config.items() if key_cfg not in ['tind_nz','tind_z']},index=[0])
+            df_b_params.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/Best_hyper_params_1dellps_n={N}_genmod_S={sprsty}_{i}_j{j}_c{trc}.csv',index=False)           
             df_Lam_sel = pd.DataFrame({'Lam_sel':Lambda_sel})
             df_Lam_sel.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/Lam_sel_1dellps_n={N}_genmod_S={sprsty}_{i}_j{j}_c{trc}.csv',index=False)           
             df_Lam_bst = pd.DataFrame({'Lam_bst':Lambda_bst})
@@ -921,6 +968,8 @@ for j in j_rng:
             df_c_omp_rs = pd.DataFrame({'comp_rs':c_om_rs})
             df_c_omp_rs.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/comp_rs_1dellps_n={N}_genmod_S={sprsty}_{i}_j{j}_c{trc}.csv',index=False)               
             # cost_tot_1 = cost_tot[1:,:]
+            df_bepoch = pd.DataFrame({'ep_best':best_epoch},index=[0])
+            df_bepoch.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/best_epoch_1dellps_n={N}_genmod_S={sprsty}_{i}_j{j}_c{trc}.csv',index=False)
             df_cost_tot = pd.DataFrame({'cost_t':np.array(cost)})
             df_cost_tot.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/cost_tot_1dellps_n={N}_genmod_S={sprsty}_{i}_j{j}_c{trc}.csv',index=False)
             df_cost_val = pd.DataFrame({'cost_val':np.array(cost_val)})

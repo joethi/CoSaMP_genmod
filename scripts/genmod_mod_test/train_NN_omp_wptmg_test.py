@@ -43,7 +43,7 @@ def loss_crit(ghat,g,W_fc,f_x,ind_vt):
     # L  = torch.sum(((ghat-g)**2))/(LA.norm(ghat)*torch.numel(G_ini))
     # Loss_crt = nn.MSELoss(reduction='sum')
     return L,Wt,L_uwt
-def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,t_ind,v_ind,freq,W_fc,actlist, Nlhid,TSIG,cnfg_tn,chkpnt_dir=None,data_dir=None):
+def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc,actlist, Nlhid,TSIG,iter_fix,rnd_smp_dict,cnfg_tn,chkpnt_dir=None,data_dir=None):
    # print("sys path:",sys.path)
     #import pdb; pdb.set_trace()
     cost = []
@@ -59,6 +59,25 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,t_ind,v_i
     # ter_str = []
     total=0
     total_val_up = 1e8
+    P_alg = alph_in_tot.size(dim=0)
+    #configuration tune testing:
+    #cini_sbmind = rnd_smp_dict['cini_sbmind'];cini_nz_ln  = rnd_smp_dict['cini_nz_ln']
+    #cini_z  = rnd_smp_dict['cini_z']; cini_z_ln  = rnd_smp_dict['cini_z_ln'];  ntpk_cr = rnd_smp_dict['ntpk_cr'] 
+    #cnfg_tn['tind_nz'] = tune.sample_from(lambda _: random.sample(cini_sbmind.tolist(), int(4*cini_nz_ln/5-ntpk_cr)))
+    #cnfg_tn['tind_z'] =  tune.sample_from(lambda _: random.sample(cini_z.tolist(),int(4*cini_z_ln/5)))
+    t_ind_nz = cnfg_tn['tind_nz']
+    #print('t_ind_nz shape',len(t_ind_nz))
+    #print('t_ind_nz ',t_ind_nz)
+    t_ind_z = cnfg_tn['tind_z']
+    #print('t_ind_z shape',len(t_ind_z))
+    #print('t_ind_z ',t_ind_z)
+    t_ind = np.concatenate((rnd_smp_dict['cr_mxind'],t_ind_nz,t_ind_z),axis=None)
+    #print('t_ind shape',len(t_ind))
+    #print('t_ind ',t_ind)
+    v_ind =  np.setdiff1d(np.linspace(0,P_alg-1,P_alg),t_ind)
+    #print('v_ind shape',len(v_ind))
+    #print('v_ind ',v_ind)
+    #print('t_ind int v_ind',np.intersect1d(t_ind,v_ind))
     G_omp = chat_omp[t_ind]
     alph_in = alph_in_tot[t_ind,:]
     G_omp_val = chat_omp[v_ind]
@@ -87,8 +106,11 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,t_ind,v_i
     optimizer = torch.optim.Adam(GNNmod.parameters(), lr=cnfg_tn['lr'])
     for epoch in range(epochs):
         total=0
-        if epoch%1000==0: 
-            print('epoch:',epoch)
+        if epoch%1000==0 and epoch!=0: 
+            print('epoch:',epoch-1,"total_val",total_val)
+        elif epoch<500 and epoch>400:
+            print('epoch:',epoch-1,"total_val",total_val)
+
         # print('thet_size:',thet.size())
         # print('thet_str_size:',thet_str.size())
         # for i in range(P):
@@ -105,7 +127,7 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,t_ind,v_i
                 nn.utils.vector_to_parameters(torch.Tensor(np.random.rand(nprm_tnthet)), GNNmod.parameters())
             # thet_i = thet.detach().numpy() #it is gonna keep changing the parameters even if it is defined for epoch=0.
             #G_ini = G_omp        
-        G_NN = GNNmod(alph_in,actlist,Nt_ind).flatten()
+        G_NN = GNNmod(alph_in,[cnfg_tn.get(f'a{lyr1}') for lyr1 in range(Nlhid)],Nt_ind).flatten()
         # G_NN_h = dmold.G_NN_nphrdcd(thet, alph_in,H)
         # print('G_NN',G_NN)
         # print('G_ver',G_ver)
@@ -132,14 +154,14 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,t_ind,v_i
         total=loss.item() 
         total_uwt = loss_uwt.item()
         # Validation Loss:
-        G_NN_val = GNNmod(alph_in_val,actlist,Nt_ind).flatten()            
+        G_NN_val = GNNmod(alph_in_val,[cnfg_tn.get(f'a{lyr2}') for lyr2 in range(Nlhid)],Nt_ind).flatten()            
         loss_val, W_val,loss_uwt_val = loss_crit(G_omp_val,G_NN_val,W_fc,f_x,v_ind)
         total_val = loss_val.item()
         total_uwt_val = loss_uwt_val.item()
         # Zerr plot:
         thet_up_ep = nn.utils.parameters_to_vector(GNNmod.parameters())
         #z_err = np.linalg.norm(thet_str1 - thet_up_ep.detach().numpy()) /np.linalg.norm(thet_str1)
-        if epoch%freq==0:
+        if epoch%freq==0: #and epoch<=iter_fix: #FIXME
            cost.append(total)       
            cost_abs.append(total)
            cost_val.append(total_val)
@@ -147,17 +169,41 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,t_ind,v_i
            cost_val_rel.append(total_val/la.norm(W_val*G_omp_val)**2)
            cost_uwt.append(total_uwt)
            cost_uwt_val.append(total_uwt_val)
-        if epoch == 9999: 
-            costval_min = min(cost_val) 
-        if epoch >10000:
-            checkpoint = Checkpoint.from_dict({"epoch": epoch,"thet":thet_up_ep.detach().numpy()})
-            session.report({'loss_met':total_val,'train_loss':total},checkpoint=checkpoint)
-            if total_val < total_val_up:
-               total_val_up = total_val #try to use torch.clone for copying.
-               thet_bst = torch.clone(thet_up_ep)
-               ep_bst = epoch            
-            else: 
-               break
+        if total_val < total_val_up:
+           total_val_up = total_val #try to use torch.clone for copying.
+           thet_bst = torch.clone(thet_up_ep)
+           ep_bst = epoch            
+        if epoch == iter_fix: 
+            costval_min = min(cost_val[:iter_fix+1]) 
+            print('costval_min',costval_min)
+            print('epoch',epoch,'total_val_up',total_val_up)
+        if epoch >iter_fix:
+            if total_val_up < total_val and epoch==iter_fix+1:
+                #print('cost',cost)
+                print('epoch',epoch,'validation error starts increasing after a fixed number of iterations')
+                checkpoint = Checkpoint.from_dict({"epoch": epoch,"train_app":cost,"val_app":cost_val,"thet":thet_bst.detach().numpy()})
+                #breakpoint()
+                session.report({'loss_met':costval_min,'train_loss':cost[ep_bst],'ep_best':ep_bst},checkpoint=checkpoint)
+                break
+            else:
+                if total_val <= total_val_up:
+                    print('epoch',epoch,'validation error decreases after a fixed number of iterations')
+                    if epoch == epochs-1:     
+                        checkpoint = Checkpoint.from_dict({"epoch": epoch,"train_app":cost,"val_app":cost_val,"thet":thet_bst.detach().numpy()})
+                        session.report({'loss_met':total_val,'train_loss':total,'ep_best':ep_bst},checkpoint=checkpoint)
+                else:
+                    print('epoch',epoch,'validation error increases/stays constant after a fixed number of iterations')
+                    checkpoint = Checkpoint.from_dict({"epoch": epoch,"train_app":cost,"val_app":cost_val,"thet":thet_bst.detach().numpy()})
+                    session.report({'loss_met':total_val_up,'train_loss':cost[ep_bst],'ep_best':ep_bst},checkpoint=checkpoint)
+                    break
+                    
+
+            #if total_val < total_val_up:
+            #   total_val_up = total_val #try to use torch.clone for copying.
+            #   thet_bst = torch.clone(thet_up_ep)
+            #   ep_bst = epoch            
+            #else: 
+            #   break
            #with tune.checkpoint_dir(epoch) as checkpoint_dir:
            #   path = os.path.join(checkpoint_dir, "checkpoint")
            #   #print("path:",path)

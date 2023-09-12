@@ -43,10 +43,10 @@ def omp_utils_lower_order_ph(out_dir_ini,d,p,y_data,u_data,data_tst,optim_indice
     print(f'Training Error for c_ini: {train_err_p}')
     # Validation error: is the error on the unseen data:
     print(f'Validation Error for c_ini: {valid_err_p}')
-    df_comp0 = pd.DataFrame({'c_omp0':c_ini})
-    df_comp0.to_csv(f'{out_dir_ini}/plots/j={j}/comp0_1dellps_n={N}_genmod_S={S_omp}_p={p_omp}_j{j}.csv',index=False)
+    df_comp0 = pd.DataFrame({'c_omp':c_ini})
+    df_comp0.to_csv(f'{out_dir_ini}/plots/j={j}/comp_1dellps_n={N}_genmod_S={S_omp}_p={p_omp}_j{j}.csv',index=False)
     df_omp_err = pd.DataFrame({'valid_err':[valid_err_p],'test_err':[train_err_p]})
-    df_omp_err.to_csv(f'{out_dir_ini}/plots/j={j}/epsu_1dellps_n={N}_genmod_S0={S_omp}_p={p_omp}.csv',index=False)
+    df_omp_err.to_csv(f'{out_dir_ini}/plots/j={j}/epsu_1dellps_n={N}_genmod_S={S_omp}_p={p_omp}.csv',index=False)
     ##==========================================================================================================
     return c_ini, S_omp, train_err_p, valid_err_p, P_omp, mi_mat_omp, Psi_omp
 #Cosamp utils
