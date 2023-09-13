@@ -74,6 +74,7 @@ parser.add_argument('--hub',dest='h_ubnd',default=22,type=int,help='p_h')
 parser.add_argument('--p_0',dest='p0',default=2,type=int,help='p_0')
 parser.add_argument('--d',dest='dim',default=21,type=int,help='d')
 parser.add_argument('--ntrial',dest='num_trl',default=10,type=int,help='num_trials')
+parser.add_argument('--j_rng',dest='j_flg',nargs='+',default=0,type=int,help='0 if all the repications needed, a list having necessary replication numbers otherwise')
 parser.add_argument('--plot_dat',dest='plot_dat',default=0,type=int,help='plot u data?')
 parser.add_argument('--ts',dest='tune_sig',default=1,type=int,help='tune signal-0 is for debugging single layer network-errors out when you use 2 layers and ts 0 concurrently')
 args = parser.parse_args()
@@ -276,7 +277,7 @@ avtnlst =['None'  if tune_sg==0 else tune.choice(['None',nn.Sigmoid(),nn.ReLU()]
 N = args.N_smp  # note that you need more samples than sparsity for least squares.
 Nv = args.N_v
 Nrep = args.N_rep
-j_rng =range(Nrep) #range(Nrep) ---change this to run for a particular replication. Useful for debugging.
+j_rng = range(Nrep) if args.j_flg==0 else args.j_flg #range(Nrep) ---change this to run for a particular replication. Useful for debugging.
 #% Save parameters:
 opt_params = {'ph':p,'p0':p_0,'d':d,'epochs':epochs,'lr':learning_rate,'Sh':sprsty,'S0':S_omp0,
         'N_t':tot_itr,'fr':freq,'W_fac':f'{W_fac}','z_n':z_n,'Tp_i1':top_i1,'Tp_i0':top_i0,'N':N,'Nv':Nv,'Nrep':Nrep,'Nc_rp':Nc_rp,'S_chs':S_chs,'chc_poly':chc_Psi,'sd_ind':seed_ind,'sd_thtini':seed_thtini,'sd_ceff':seed_ceff,'Nrp_vl':Nrp_vl,"sd_thtini_2nd":sd_thtini_2nd}
@@ -295,8 +296,11 @@ for i in range(Nrep):
  fw.writerow(random.sample(range(N_rndsmp), N))
 f.close()
 # FIXME: HARDCODING:
-#index_file = f'{out_dir_ini}/plots/1dellps_indices_n={N}_ini.csv'
-#index_file =f'/home/jothi/CoSaMP_genNN/output/titan_ppr/results/csaug13/d=21/p=3/ref_data/1dellps_indices_n=100_ini.csv' 
+index_file = f'{out_dir_ini}/plots/1dellps_indices_n={N}_ini.csv'
+index_file =f'/home/jothi/CoSaMP_genNN/output/titan_ppr/results/csaug13/d=21/p=3/ref_data/1dellps_indices_n=100_ini.csv' 
+print("=====================================================")
+print("Here I hardcoded the indices to 100--please change it")
+print("=====================================================")
 #index_file = f'{out_dir_ini}/ini/ind/indices_CoSaMP_N=100_Jul15.csv'
 #
 indices0 = pd.read_csv(index_file)
@@ -861,7 +865,7 @@ for j in j_rng:
            # cost_uwt,cost_uwt_val,cost_rel,cost_val_rel,cost,cost_val,thet_f,thet_bst,zer_str,thet_dict1 = tnn.train_theta(torch.Tensor(np.abs(c_hat.flatten())), thet_upd,thet_str,i, 
            #     torch.Tensor(mi_mat_in),epochs,Hid,trn_ind_nw,val_ind_nw,freq,W_fac[i],config_tune)
 ## TODo: see if this should be changed to thet_bst:So far not necessary!            
-            import pdb; pdb.set_trace()
+            #import pdb; pdb.set_trace()
             #FIXME:seeding for initializing theta in the next iteration
             np.random.seed(i+sd_thtini_2nd)
             thet_upd = torch.Tensor(np.random.rand(z_n))
@@ -899,7 +903,6 @@ for j in j_rng:
             c_omp_sel = np.zeros(P)
 #====================NOTe HERE thet_upd was there in the place of thet_bst=========            
             nn.utils.vector_to_parameters(torch.Tensor(thet_bst), GNNmod.parameters())
-            #FIXME: Here I use different activation function for 4th iteration
             Gmod_bst = GNNmod(torch.Tensor(mi_mat),[best_config.get(f'a{lyr1}') for lyr1 in range(Nlhid)],i).detach().numpy().flatten()
 #=================For randomly initializing \theta (I think it is redundant)=================================            
 #            nn.utils.vector_to_parameters(thet_upd, GNNmod.parameters())           
@@ -916,7 +919,21 @@ for j in j_rng:
             else:
                 Lambda_sel_tmp = (np.argsort(Gmod_bst)[::-1])[:S_chs]
                 Lam_pr_bst  = pd.read_csv(f'{out_dir_ini}/plots/j={j}/it={i-1}/Lam_bst_1dellps_n={N}_genmod_S={sprsty}_{i-1}_j{j}_c{trc}.csv')['Lam_bst'].to_numpy().flatten()
+                Lam_comn = np.intersect1d(Lambda_sel_tmp,Lam_pr_bst)
+                S_comn = Lam_comn.size
+                S_csit = sprsty+S_chs-S_comn
+                print("Lambda_sel_tmp",Lambda_sel_tmp)
+                print("Lambda_pr_bst",Lam_pr_bst)
+                print("Lam_comn",Lam_comn)
+
+                if S_csit > S_chs:
+                    Lambda_sel_tmp = Lambda_sel_tmp[np.in1d(Lambda_sel_tmp, Lam_comn, invert=True)][:sprsty]       
+                elif S_comn==0: 
+                    Lambda_sel_tmp = Lambda_sel_tmp[:sprsty]
+                print("Lambda_sel_tmp",Lambda_sel_tmp)
                 Lambda_sel = np.union1d(Lambda_sel_tmp,Lam_pr_bst)
+                print("Lambda_sel",Lambda_sel)
+
             #import pdb; pdb.set_trace()
             Psi_active_bst = pcu.make_Psi_drn(y_data[optim_indices,:d],mi_mat,Lambda_sel.tolist(),chc_Psi)
             Psi_active_bst_T = np.transpose(Psi_active_bst)
