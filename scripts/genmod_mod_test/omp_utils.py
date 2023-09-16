@@ -7,7 +7,7 @@ import genmod_mod.train_NN_omp_wptmg as tnn
 import pandas as pd
 import sys
     # Find initial signs with orthogonal matching pursuit (sklearn):
-def omp_utils_lower_order_ph(out_dir_ini,d,p,y_data,u_data,data_tst,optim_indices,chc_Psi,chc_omp_slv,S_omp,j):
+def omp_utils_order_ph(out_dir_ini,d,p,y_data,u_data,data_tst,optim_indices,chc_Psi,chc_omp_slv,S_omp,j):
     d_omp = d
     p_omp = p
     N = len(optim_indices)
@@ -36,6 +36,32 @@ def omp_utils_lower_order_ph(out_dir_ini,d,p,y_data,u_data,data_tst,optim_indice
     #    c_ini[9] = 0
     S_omp = np.size(np.nonzero(c_ini)[0])
     print('S_0:', S_omp)
+    # c_ini = pd.read_csv(f'{out_dir_ini}/ini/ompcs/cini_1dellps_n=680_genmod_S=168_0.csv').to_numpy().flatten()
+    # Test on the data:
+    train_err_p, valid_err_p = tnn.val_test_err(data_tst,mi_mat_omp,c_ini)
+    # Testing error: is the error on the training data:
+    print(f'Training Error for c_ini: {train_err_p}')
+    # Validation error: is the error on the unseen data:
+    print(f'Validation Error for c_ini: {valid_err_p}')
+    df_comp0 = pd.DataFrame({'c_omp':c_ini})
+    df_comp0.to_csv(f'{out_dir_ini}/plots/j={j}/comp_1dellps_n={N}_genmod_S={S_omp}_p={p_omp}_j{j}.csv',index=False)
+    df_omp_err = pd.DataFrame({'valid_err':[valid_err_p],'test_err':[train_err_p]})
+    df_omp_err.to_csv(f'{out_dir_ini}/plots/j={j}/epsu_1dellps_n={N}_genmod_S={S_omp}_p={p_omp}.csv',index=False)
+    ##==========================================================================================================
+    return c_ini, S_omp, train_err_p, valid_err_p, P_omp, mi_mat_omp, Psi_omp
+def omp_utils_order_ph_dummy(out_dir_ini,cht_fl_rpdc,d,p,y_data,u_data,data_tst,optim_indices,chc_Psi,chc_omp_slv,S_omp,j):
+    d_omp = d
+    p_omp = p
+    N = len(optim_indices)
+    #OMPCV, and without CV:
+    mi_mat_omp = pcu.make_mi_mat(d_omp, p_omp)
+    P_omp = np.size(mi_mat_omp,0)
+    Psi_omp = pcu.make_Psi(y_data[optim_indices,:d],mi_mat_omp,chc_Psi) 
+    c_ini = pd.read_csv(f"{cht_fl_rpdc}").to_numpy().flatten()
+    #    c_ini[74] = 0.001
+    #    c_ini[9] = 0
+    S_omp = np.size(np.nonzero(c_ini)[0])
+    print('p',p,'S:', S_omp)
     # c_ini = pd.read_csv(f'{out_dir_ini}/ini/ompcs/cini_1dellps_n=680_genmod_S=168_0.csv').to_numpy().flatten()
     # Test on the data:
     train_err_p, valid_err_p = tnn.val_test_err(data_tst,mi_mat_omp,c_ini)

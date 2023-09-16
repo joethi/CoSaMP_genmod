@@ -47,6 +47,7 @@ from torch import relu
 #            # chat    = self.lin2(self.Rl1)
 #        return chat
 #Configurable neural networks for the tuning:    
+##FIXME Consider adding the activation functions in the initialization step itself: 
 class GenNN(nn.Module):
     
     def __init__(self,Layers):

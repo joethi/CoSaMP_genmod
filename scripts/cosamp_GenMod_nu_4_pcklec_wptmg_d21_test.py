@@ -21,6 +21,7 @@ import torch
 import torch.nn as nn
 import sys
 import time
+import pickle
 import statistics as sts
 from scipy.stats import norm
 import matplotlib.pyplot as plt
@@ -32,7 +33,7 @@ from ray.tune import CLIReporter
 from ray.air.checkpoint import Checkpoint
 #from ray.tune.schedulers import ASHAScheduler
 from ray.tune.schedulers import AsyncHyperBandScheduler 
-from ray import tune
+from ray import tune, air
 import ray
 import argparse
 import os
@@ -73,7 +74,9 @@ parser.add_argument('--p_h',dest='ph',default=3,type=int,help='p_h')
 parser.add_argument('--hub',dest='h_ubnd',default=22,type=int,help='p_h')
 parser.add_argument('--p_0',dest='p0',default=2,type=int,help='p_0')
 parser.add_argument('--d',dest='dim',default=21,type=int,help='d')
+parser.add_argument('--cini_fl',dest='cht_ini_fl',default='None',type=str,help='file name with the path for initial omp coefficients for reproducing/debugging')
 parser.add_argument('--ntrial',dest='num_trl',default=10,type=int,help='num_trials')
+parser.add_argument('--dbg',dest='debug_alg',default=0,type=int,help='1-flag for switching to debugging')
 parser.add_argument('--j_rng',dest='j_flg',nargs='+',default=0,type=int,help='0 if all the repications needed, a list having necessary replication numbers otherwise')
 parser.add_argument('--plot_dat',dest='plot_dat',default=0,type=int,help='plot u data?')
 parser.add_argument('--ts',dest='tune_sig',default=1,type=int,help='tune signal-0 is for debugging single layer network-errors out when you use 2 layers and ts 0 concurrently')
@@ -546,8 +549,10 @@ for j in j_rng:
 ##==========================================================================================================
 #======================================================================================
 #======================================================================================
-   
-    c_ini, S_omp0, train_err_p0, valid_err_p0,P_omp,mi_mat_omp, Psi_omp = omu.omp_utils_lower_order_ph(out_dir_ini,d,p_0,y_data,u_data,data_tst,optim_indices,chc_Psi,chc_omp_slv,S_omp0,j)
+    if args.debug_alg==1:
+        c_ini, S_omp0, train_err_p0, valid_err_p0,P_omp,mi_mat_omp, Psi_omp = omu.omp_utils_order_ph_dummy(out_dir_ini,args.cht_ini_fl,d,p_0,y_data,u_data,data_tst,optim_indices,chc_Psi,chc_omp_slv,S_omp0,j)
+    else:
+        c_ini, S_omp0, train_err_p0, valid_err_p0,P_omp,mi_mat_omp, Psi_omp = omu.omp_utils_order_ph(out_dir_ini,d,p_0,y_data,u_data,data_tst,optim_indices,chc_Psi,chc_omp_slv,S_omp0,j)
     import pdb;pdb.set_trace()
 #   
 ##Calculate S for 0 and h:
@@ -558,7 +563,7 @@ for j in j_rng:
 #=============================================================================
 # Find omp coefficients for the higher order omp:
 #=============================================================================
-    c_omph, S_omph, test_omp_ph, valid_omp_ph,P_omph,mi_mat_omph, Psi_omph= omu.omp_utils_lower_order_ph(out_dir_ini,d,p,y_data,u_data,data_tst,optim_indices,chc_Psi,chc_omp_slv,S_omp,j)
+    c_omph, S_omph, test_omp_ph, valid_omp_ph,P_omph,mi_mat_omph, Psi_omph= omu.omp_utils_order_ph(out_dir_ini,d,p,y_data,u_data,data_tst,optim_indices,chc_Psi,chc_omp_slv,S_omp,j)
 #=============================================================================
     # #p=3
     print('S_omph:',S_omph)
@@ -687,7 +692,7 @@ for j in j_rng:
     # mi_mat_in = mi_mat_omp[0,:]
     # c_hat = c_ini[0]
     mi_mat_in = mi_mat_omp
-    c_hat = c_ini
+    c_hat = np.copy(c_ini)
     cr_mxind = (np.argsort(np.abs(c_hat))[::-1])[:top_i0]
     # mi_mat_in = mi_mat_omp[S_fnl,:]
     # c_hat = c_ini[S_fnl]
@@ -811,98 +816,42 @@ for j in j_rng:
             part_fnc = partial(tnn.train_theta,torch.Tensor(np.abs(c_hat.flatten())), thet_upd,thet_str,i, 
                 torch.Tensor(mi_mat_in),epochs,freq,W_fac[i],avtnlst,Nlhid,tune_sg,args.it_fix,rnd_smp_dict)
             print(":after partfunc:")
-            #ray.init(runtime_env={"working_dir":"/home/jothi/CoSaMP_genNN","excludes":["/home/jothi/CoSaMP_genNN/output/**/*","/home/jothi/CoSaMP_genNN/data/**/*","/home/jothi/CoSaMP_genNN/.git/**/*"]})
-            #result = tune.run(part_fnc, config=config_tune, scheduler=scheduler, progress_reporter=reporter,verbose=0)
-            #tuner = tune.Tuner(tune.with_resources(part_fnc,{"cpu":20}), tune_config=tune.TuneConfig(metric='loss_met', mode='min',scheduler=scheduler,num_samples=num_trial), param_space=config_tune)
-            tuner = tune.Tuner(part_fnc, tune_config=tune.TuneConfig(metric='loss_met', mode='min',scheduler=scheduler,num_samples=num_trial), param_space=config_tune)
+            tuner = tune.Tuner(part_fnc,run_config=air.RunConfig(storage_path=f'{out_dir_ini}') ,tune_config=tune.TuneConfig(metric='loss_met', mode='min',scheduler=scheduler,num_samples=num_trial), param_space=config_tune)
             #import pdb;pdb.set_trace()
             print(":after results:")
             result = tuner.fit() 
             #result_df = result.get_dataframe() 
-            #best_h_params = result.get_best_result().configcost = result_df['train_loss']
-            #best_h_params = result.get_best_result().config 
             best_result = result.get_best_result()
             best_config = best_result.config
+            with open(f'{out_dir_ini}/plots/j={j}/it={i}/best_config.pickle','wb') as bprms_pickl:
+                pickle.dump(best_config,bprms_pickl)
             print("Best hyperparameters found were: ",best_config)
             GNNmod = gnn.GenNN([d] + [best_config.get(f'h{lyr}') for lyr in range(Nlhid)] +[1])
+            import pdb; pdb.set_trace()
             best_result_df = best_result.metrics_dataframe
             best_epoch = best_result_df['ep_best'].to_numpy().flatten() 
             #cost = best_result_df['train_loss'].to_numpy().flatten() 
-            #cost_val = best_result_df['loss_met'].to_numpy().flatten() 
-            #zer_str = best_result_df['z_err'].to_numpy().flatten() 
-            #best_trial = result.get_best_trial("loss_met", "min", "last")
-            #best_trained_model = gnn.GenNN(d,best_trial.config['Hid'],1)
-            #print(":after best trial:")
-            #print("Best trial config: {}".format(best_trial.config))
-            #print("Best trial final validation loss: {}".format(
-            #              best_trial.last_result["loss_met"]))
-            #best_trial.last_result.get("trn_op_dict")
-            #import pdb; pdb.set_trace()
             #retrieve the best model:
             best_checkpoint = best_result.checkpoint  
             best_chckpnt_dict = best_checkpoint.to_dict() 
             thet_bst = best_chckpnt_dict.get("thet")      
             cost = best_chckpnt_dict.get("train_app")      
             cost_val = best_chckpnt_dict.get("val_app")      
+            torch.save(best_chckpnt_dict,f'{out_dir_ini}/plots/j={j}/it={i}/model_best_cpt_i{i}_j{j}.pt')
+
             #retrives final checkpoint:
             #FIXedME: some hardcoding:
-            #bcpt_path = best_checkpoint.path
-            #index_cpt = bcpt_path.find("checkpoint_") 
-            #index_uscr = index_cpt+len("checkpoint_")
-            #add_strng_pth =  str(epochs-1).zfill(len(bcpt_path[index_uscr:]))
-            #final_path = bcpt_path[:index_uscr] +add_strng_pth 
-            #fnl_cptdir  = Checkpoint.from_directory(final_path)   
-            #fnl_cpt_dict = fnl_cptdir.to_dict()
-            #thet_f = fnl_cpt_dict.get("thet")
-            #final_checkpoint = 
-            
-            ##retrieve the best model:
-            #best_checkpoint_dir = best_trial.checkpoint.value
-            #model_state, optimizer_state = torch.load(os.path.join(
-            #best_checkpoint_dir, "checkpoint"))
-            #best_trained_model.load_state_dict(model_state)
-            #==========================================================================
-           # cost_uwt,cost_uwt_val,cost_rel,cost_val_rel,cost,cost_val,thet_f,thet_bst,zer_str,thet_dict1 = tnn.train_theta(torch.Tensor(np.abs(c_hat.flatten())), thet_upd,thet_str,i, 
-           #     torch.Tensor(mi_mat_in),epochs,Hid,trn_ind_nw,val_ind_nw,freq,W_fac[i],config_tune)
-## TODo: see if this should be changed to thet_bst:So far not necessary!            
-            #import pdb; pdb.set_trace()
             #FIXME:seeding for initializing theta in the next iteration
             np.random.seed(i+sd_thtini_2nd)
             thet_upd = torch.Tensor(np.random.rand(z_n))
 # Write temp    orary variables:
-                #if thet_f.requires_grad:
-                #    print("Tensor with requires_grad=True")
-                #cost_tmp[f'{itvl_ind}'] = np.copy(cost)
-                #cost_val_tmp[f'{itvl_ind}']= np.copy(cost_val) 
-                ##thet_f_tmp[:,itvl_ind] = np.copy(thet_f)
-                #thet_bst_tmp[f'{itvl_ind}']= np.copy(thet_bst)
-                #thet_f_tmp[:,itvl_ind] = torch.clone(thet_f)
-                #thet_bst_tmp[:,itvl_ind] = torch.clone(thet_bst)
-# NOTE: New     changes:
-                #ls_vlit_min[itvl_ind,i] = np.amin(cost_val) #append the changes.    
-            # write the tmp costs and all other values back into corresponding variables at minimum
-            # loss of all Nrp_vl iterations.
-            #mn_vlls_ind = np.argmin(ls_vlit_min[:,i])
-            #df_mnvlsind = pd.DataFrame({'mn_vlls_ind':mn_vlls_ind},index=[0])
-            #df_mnvlsind.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/mn_vlls_ind_alph_omp_N={N}_{i}_c{trc}.csv',index=False)
-
-            #cost = cost_tmp[f'{mn_vlls_ind}']
-            #cost_val = cost_val_tmp[f'{mn_vlls_ind}']
-            ##thet_f = thet_f_tmp[:,mn_vlls_ind]
-            #thet_bst = thet_bst_tmp[f'{mn_vlls_ind}']
-            #if thet_f.requires_grad and thet_bst.requires_grad:
-            #    print("Thet_f and thet_bst requires grad")
-            #zer_str = zer_str_tmp[:,mn_vlls_ind].tolist()
-#           nn.utils.vector_to_parameters(thet_upd, GNNmod.parameters())
-#            thet_dict = np.vstack((thet_dict,thet_upd.detach().numpy()))
-#            g_mod_ini = GNNmod(torch.Tensor(mi_mat_in)).detach().numpy().flatten()       
-            #cost_tot = np.vstack((cost_tot,np.asarray(cost)))
-            # cost_rel_tot = np.vstack((cost_rel_tot,np.asarray(cost_rel)))        
             ## Least squares step at low validation error:          
             c_omp_bst = np.zeros(P)
             c_omp_sel = np.zeros(P)
 #====================NOTe HERE thet_upd was there in the place of thet_bst=========            
             nn.utils.vector_to_parameters(torch.Tensor(thet_bst), GNNmod.parameters())
+            torch.save(GNNmod,f'{out_dir_ini}/plots/j={j}/it={i}/model_final_i{i}_j{j}.pt')
+            torch.save(GNNmod.state_dict(),f'{out_dir_ini}/plots/j={j}/it={i}/modelprms_final_dict_i{i}_j{j}.pt')
             Gmod_bst = GNNmod(torch.Tensor(mi_mat),[best_config.get(f'a{lyr1}') for lyr1 in range(Nlhid)],i).detach().numpy().flatten()
 #=================For randomly initializing \theta (I think it is redundant)=================================            
 #            nn.utils.vector_to_parameters(thet_upd, GNNmod.parameters())           
@@ -1005,8 +954,10 @@ for j in j_rng:
             df_cini.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/cini_1dellps_n={N}_genmod_S={sprsty}_{i}_j{j}_c{trc}.csv',index=False)
             # df_eps_ctmp = pd.DataFrame({'eps_ctmp':eps_ctmp}) 
             # df_eps_ctmp.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/eps_ctmp_1dellps_n={N}_genmod_S={sprsty}_{i}_j{j}_c{trc}.csv',index=False)
-            #df_thet_up = pd.DataFrame({'thet_f':thet_f,'thet_bst':thet_bst})
-            #df_thet_up.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/thetup_1dellps_n={N}_genmod_S={sprsty}_{i}_j{j}_c{trc}.csv',index=False)  
+            df_thet_up = pd.DataFrame({'thet_bst':thet_bst})
+            df_thet_up.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/thetup_1dellps_n={N}_genmod_S={sprsty}_{i}_j{j}_c{trc}.csv',index=False)  
+          #df_thet_up = pd.DataFrame({'thet_f':thet_f,'thet_bst':thet_bst})
+          #df_thet_up.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/thetup_1dellps_n={N}_genmod_S={sprsty}_{i}_j{j}_c{trc}.csv',index=False)  
 
         # if i==0:
         #     ecmn_ind = np.argmin(eps_ctmp)
@@ -1022,47 +973,6 @@ for j in j_rng:
             eps_u[i+1] = epsu_tmp[int(ecmn_ind[i])]            
         # # Testing error: is the error on the training data:
         # print(f'Testing Error: {test_err_bst}')
-        # # Validation error: is the error on the unseen data:
-        # print(f'Valiidation Error: {valid_err_bst}')   
-        # # valid_err_ls.append(valid_err_bst)
-        # valid_err_ls.append(valid_err_bst)
-        #
-        # if i%10==0 or i==1:              
-        #plt.figure(50+i)
-        ## c = next(color)
-        ## plt.semilogy(np.linspace(0,epochs-1,epochs),cost,c=c)
-#       # plt.subplot(2,2,i+1)
-        #plt.semilogy(list(range(0,epochs,freq)),cost,label='$loss_{train}$,i = %s' % i)    
-        #plt.semilogy(list(range(0,epochs,freq)),cost_val,label='$loss_{val}$,i = %s' % i)  
-        ## plt.semilogy(list(range(0,epochs,freq)),cost_uwt,label='$loss_{train}, W=I$,i = %s' % i)    
-        ## plt.semilogy(list(range(0,epochs,freq)),cost_uwt_val,label='$loss_{val}, W=I$,i = %s' % i)  
-        ## plt.semilogy(np.linspace(0,epochs-1,epochs),cost,'b*',label='cost_itr = %s' % i)    
-        ## plt.semilogy(np.linspace(0,epochs-1,epochs),cost_val,'r*',label='cost_itr = %s' % i)    
-        #plt.legend()
-        #plt.xlabel('epoch')
-        #plt.ylabel('$||W(|\hat{c}|-G)||_2^2$')
-        #plt.figure(261+i)
-#        plt.subplot(2,2,i+1)
-        # c = next(color)
-        # plt.semilogy(np.linspace(0,epochs-1,epochs),cost,c=c)
-        #plt.semilogy(list(range(0,epochs,freq)),cost_rel,label='$loss_{train}$,i = %s' % i)    
-        #plt.semilogy(list(range(0,epochs,freq)),cost_val_rel,label='$loss_{val}$,i = %s' % i)  
-        # plt.semilogy(np.linspace(0,epochs-1,epochs),cost,'b*',label='cost_itr = %s' % i)    
-        # plt.semilogy(np.linspace(0,epochs-1,epochs),cost_val,'r*',label='cost_itr = %s' % i)    
-        #plt.legend()
-        #plt.xlabel('epoch')
-        #plt.ylabel('$||W(|\hat{c}|-G)||_2^2/||\hat{c}_i||_2^2$')    
-        #plt.figure(2)
-        #plt.plot(list(range(0,epochs,freq)),zer_str,label='Z^{*}_itr = %s' % i)
-        ## plt.plot(np.linspace(0,epochs-1,epochs),zer_str,label='Z^{*}_itr = %s' % i)
-        #plt.legend()
-        # #%% Plots:
-        # plt.figure(6+5*i)
-        # plt.plot(np.linspace(1,P,P),Gmod_bst,'ok',label='G_1')
-        # plt.plot(np.linspace(1,P_omp,P_omp),np.abs(c_ini),'*r',label='|C_omp|')
-        # plt.xlabel('Index of PCE coefficients')
-        # plt.ylabel('Magnitude of PCE coefficients')
-        # # plt.xlim([1,5])
         # #=================================================================
         # # #Log plot of cini and GMod comparision (basically nonzeros):
         # plt.figure(7+5*i)
@@ -1073,6 +983,7 @@ for j in j_rng:
         # plt.xlabel('Index of PCE coefficients')
         # plt.ylabel('Magnitude of PCE coefficients')
         i += 1
+        # #=================================================================
     #%% Plot relative validation error:
     # Wrtite relative coefficient error:
     if chc_eps == 'u':
@@ -1084,75 +995,9 @@ for j in j_rng:
         df_epsc.to_csv(f'{out_dir_ini}/plots/j={j}/epsc_1dellps_n={N}_genmod_S={sprsty}_j{j}.csv',index=False)        
     df_mnd= pd.DataFrame({'ecmn_ind':ecmn_ind})
     df_mnd.to_csv(f'{out_dir_ini}/plots/j={j}/ecmn_ind_1dellps_n={N}_genmod_S={sprsty}_j{j}.csv',index=False)
-    #plt.figure(750)
-    #plt.semilogy(np.linspace(-1,tot_itr-1,tot_itr+1),eps_u,'ok',label='mod-omp',markersize=10)
-    ## plt.semilogy(np.linspace(1,P_omp,P_omp),np.abs(c_ini),'*r',label='|C_omp|')
-    #plt.axhline(y=valid_omp_ph,color='k',linestyle='-',label='omp')
-    #
-    ## plt.ylim([1e-7,0.4])
-    ## plt.ylabel('Relative coefficient error')
-    #plt.ylabel('$\epsilon_u =||u-\Psi c||_{2}/||u||_{2}$')
-    #plt.xlabel('total iteration')
-    #plt.legend()
-    #plt.show()
-    ##Relative coefficient error:    
-    # plt.figure(750)
-    # plt.semilogy(np.linspace(-1,tot_itr-1,tot_itr+1),eps_c,'ok',label='mod-omp',markersize=10)
-    # # plt.semilogy(np.linspace(1,P_omp,P_omp),np.abs(c_ini),'*r',label='|C_omp|')
-    # plt.axhline(y=eps_c_omp,color='k',linestyle='-',label='omp')
-    
-    # # plt.ylim([1e-7,0.4])
-    # # plt.ylabel('Relative coefficient error')
-    # plt.ylabel('$||c_{ref}-\hat{c}_1||_2$')
-    # plt.xlabel('total iteration')
-    # plt.legend()
-    # plt.show()
-    #absolute error for N_t=1
-    # plt.figure(751)
-    # eps_abs.append(la.norm(c_omp_bst - c_ref))
-    # plt.semilogy(np.linspace(-1,tot_itr-1,tot_itr+1),eps_abs,'ok',label='mod-omp',markersize=10)
-    # # plt.semilogy(np.linspace(1,P_omp,P_omp),np.abs(c_ini),'*r',label='|C_omp|')
-    # plt.axhline(y=eps_c_omp_abs,color='k',linestyle='-',label='omp')
-    
-    # # plt.ylim([1e-7,0.4])
-    # # plt.ylabel('Relative coefficient error')
-    # plt.ylabel('$||c_{ref}-\hat{c}_1||_2$')
-    # plt.xlabel('total iteration')
-    # plt.legend()
-    # plt.show()
     # Wrtite weighted coefficient error:
     df_epsc_abs = pd.DataFrame({'epsc_abs':eps_abs})
     df_epsc_abs.to_csv(f'{out_dir_ini}/plots/j={j}/epsc_abs_1dellps_n={N}_genmod_S={sprsty}_j{j}.csv',index=False)        
-    # plt.semilogy(np.linspace(-1,tot_itr-1,tot_itr+1),test_err_ls,'ok',label='test',markersize=10)
-    # plt.semilogy(np.linspace(-1,tot_itr-1,tot_itr+1),valid_err_ls,'*b',label='valid',markersize=10)
-    # # plt.semilogy(np.linspace(1,P_omp,P_omp),np.abs(c_ini),'*r',label='|C_omp|')
-    # plt.axhline(y=test_omp_ph,color='k',linestyle='-',label='t_omp')
-    # plt.axhline(y=valid_omp_ph,color='b',linestyle='-',label='v_omp')
-    # # plt.ylim([1e-7,0.4])
-    # plt.ylabel('Relative reconstruction error')
-    # plt.xlabel('total iteration')
-    # plt.legend()
-    # plt.show()    
-    #%% Plot active sets:
-    # plt.figure(10)
-    # max_nnzr = np.size(np.nonzero(c_ini))
-    # plt.plot((np.argsort(Gmod_bst)[::-1])[:max_nnzr],(np.argsort(Gmod_bst)[::-1])[:max_nnzr],'og')
-    # plt.plot(np.nonzero(c_ini),np.nonzero(c_ini),'*r')
-    # plt.xlabel('Index of PCE coefficients')
-    # plt.ylabel('Active sets')
-    #%% Plot Cini and Gmod & differentiate color:
-    # plt.figure(101)
-    # plt.semilogy(Gmod_bst[:120],'r*',markersize=10); 
-    # G_mod_p0 = Gmod_bst[:120]
-    # plt.semilogy(np.nonzero(c_ini)[0],G_mod_p0[np.nonzero(c_ini)[0].tolist()],'b*',markersize=10);
-    # plt.semilogy(np.abs(c_ini),'go',markersize=5)
-    # plt.xlabel('Index of PCE coefficients')
-    # plt.ylabel('Magnitude of PCE coefficients')
-    #%% Write stuff:
-    # df_err_tst = pd.DataFrame({'test_err':test_err_ls,'comph_t':test_omp_ph})
-    # df_err_tst.to_csv(f'{out_dir_ini}/plots/err_tst_1dellps_n={N}_genmod_S={sprsty}_j{j}.csv',index=False)
-    # df_err_val = pd.DataFrame({'val_err':valid_err_ls,'comph_v':valid_omp_ph})
-    # df_err_val.to_csv(f'{out_dir_ini}/plots/err_val_1dellps_n={N}_genmod_S={sprsty}_j{j}.csv',index=False)
     if chc_eps=='c':
         df_cref = pd.DataFrame({'c_ref':c_ref})
         df_cref.to_csv(f'{out_dir_ini}/plots/j={j}/c_ref_1dellps_n={N}_genmod_S={sprsty}_j{j}.csv',index=False)
@@ -1161,11 +1006,3 @@ for j in j_rng:
 #plt.show()
 end_time = time.time()
 print('end - start times:',end_time-start_time)
-## Restore the stdout to its default value
-#sys.stdout.close()
-#sys.stdout = sys.__stdout__
-
-#df_epscomp = pd.DataFrame({'epsu_omph':valid_omp_ph},index=[0])
-#df_epscomp.to_csv(f'{out_dir_ini}/plots/epsuomph_tst_1dellps_n={N}_genmod_S={sprsty}.csv',index=False)
-# df_epscomp = pd.DataFrame({'epsc_omph':epsc_omph})
-# df_epscomp.to_csv(f'{out_dir_ini}/plots/epscomph_tst_1dellps_n={N}_genmod_S={sprsty}.csv',index=False)

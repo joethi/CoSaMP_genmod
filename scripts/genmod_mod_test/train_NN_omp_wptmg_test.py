@@ -119,13 +119,22 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc
         # else:
         #     alph_in = multi_index_matrix
         if epoch==0:
+            
             if TSIG==0:
                 nn.utils.vector_to_parameters(thet, GNNmod.parameters())
             else:
+                np.random.seed(1)
                 GNNmod_dict = GNNmod.state_dict() 
-                nprm_tnthet = sum(p_el.numel() for p_el in GNNmod_dict.values())
+                nprm_tnthet = sum(p_el.numel() for p_el in GNNmod_dict.values())            
+                print("nprm_tnthet",nprm_tnthet)
                 nn.utils.vector_to_parameters(torch.Tensor(np.random.rand(nprm_tnthet)), GNNmod.parameters())
+            #breakpoint()
+            prm_ini_dict = (GNNmod.state_dict()).copy() 
+            print("prm_ini_dict",prm_ini_dict)
+            G_NN_full = GNNmod(alph_in_tot,[cnfg_tn.get(f'a{lyr2}') for lyr2 in range(Nlhid)],Nt_ind).flatten()      
+            G_ini = G_NN_full.detach().numpy()
             # thet_i = thet.detach().numpy() #it is gonna keep changing the parameters even if it is defined for epoch=0.
+        #breakpoint()
             #G_ini = G_omp        
         G_NN = GNNmod(alph_in,[cnfg_tn.get(f'a{lyr1}') for lyr1 in range(Nlhid)],Nt_ind).flatten()
         # G_NN_h = dmold.G_NN_nphrdcd(thet, alph_in,H)
@@ -138,7 +147,6 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc
 #            df_thet_G74_tp20.to_csv('/home/jothi/GenMod_omp/output/titan_ppr/plots/thet_G74_tp20_e{epoch}.csv')
 #            df_G74_tp20 = pd.DataFrame({'G_upd':G_upd})                       
 #            df_G74_tp20.to_csv('/home/jothi/GenMod_omp/output/titan_ppr/plots/G_upd_G74_tp20_e{epoch}.csv')       # G_upd_dict = np.vstack((G_upd_dict,G_upd))
-        prm_dic1 = GNNmod.state_dict()
         # loss_man = torch.sum((G_NN-G_omp)**2)
         # loss_nn = nn.MSELoss(reduction='sum')
         # loss_iblt = loss_nn(G_omp,G_NN)
@@ -160,6 +168,8 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc
         total_uwt_val = loss_uwt_val.item()
         # Zerr plot:
         thet_up_ep = nn.utils.parameters_to_vector(GNNmod.parameters())
+        #import pdb; pdb.set_trace()
+        #breakpoint()
         #z_err = np.linalg.norm(thet_str1 - thet_up_ep.detach().numpy()) /np.linalg.norm(thet_str1)
         if epoch%freq==0: #and epoch<=iter_fix: #FIXME
            cost.append(total)       
@@ -175,13 +185,15 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc
            ep_bst = epoch            
         if epoch == iter_fix: 
             costval_min = min(cost_val[:iter_fix+1]) 
+            prm_fx_dict =GNNmod.state_dict() 
             print('costval_min',costval_min)
             print('epoch',epoch,'total_val_up',total_val_up)
         if epoch >iter_fix:
             if total_val_up < total_val and epoch==iter_fix+1:
+                print("prm_ini_dict",prm_ini_dict)
                 #print('cost',cost)
                 print('epoch',epoch,'validation error starts increasing after a fixed number of iterations')
-                checkpoint = Checkpoint.from_dict({"epoch": epoch,"train_app":cost,"val_app":cost_val,"thet":thet_bst.detach().numpy()})
+                checkpoint = Checkpoint.from_dict({"epoch": epoch,"train_app":cost,"val_app":cost_val,"thet":thet_bst.detach().numpy(),"G_ini":G_ini,"prm_ini":prm_ini_dict,'prm_fx_dict':prm_fx_dict})
                 #breakpoint()
                 session.report({'loss_met':costval_min,'train_loss':cost[ep_bst],'ep_best':ep_bst},checkpoint=checkpoint)
                 break
@@ -189,11 +201,12 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc
                 if total_val <= total_val_up:
                     print('epoch',epoch,'validation error decreases after a fixed number of iterations')
                     if epoch == epochs-1:     
-                        checkpoint = Checkpoint.from_dict({"epoch": epoch,"train_app":cost,"val_app":cost_val,"thet":thet_bst.detach().numpy()})
+                        checkpoint = Checkpoint.from_dict({"epoch": epoch,"train_app":cost,"val_app":cost_val,"thet":thet_bst.detach().numpy(),"G_ini":G_ini,"prm_ini":prm_ini_dict,'prm_fx_dict':prm_fx_dict})
                         session.report({'loss_met':total_val,'train_loss':total,'ep_best':ep_bst},checkpoint=checkpoint)
                 else:
+                    print("prm_ini_dict",prm_ini_dict)
                     print('epoch',epoch,'validation error increases/stays constant after a fixed number of iterations')
-                    checkpoint = Checkpoint.from_dict({"epoch": epoch,"train_app":cost,"val_app":cost_val,"thet":thet_bst.detach().numpy()})
+                    checkpoint = Checkpoint.from_dict({"epoch": epoch,"train_app":cost,"val_app":cost_val,"thet":thet_bst.detach().numpy(),"G_ini":G_ini,"prm_ini":prm_ini_dict,'prm_fx_dict':prm_fx_dict})
                     session.report({'loss_met':total_val_up,'train_loss':cost[ep_bst],'ep_best':ep_bst},checkpoint=checkpoint)
                     break
                     
