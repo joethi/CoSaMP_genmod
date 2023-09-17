@@ -41,6 +41,8 @@ import os
 np.random.seed(1)
 # torch.manual_seed(0)
 sys.path.append('/home/jothi/CoSaMP_genNN')
+#import pdb;pdb.set_trace()
+sys.path.append('/home/jothi/CoSaMP_genNN/scripts/GenMod-org-Hmt')
 #sys.path.append('/home/jothi/GenMod_omp/scikit-learn-main/sklearn/linear_model')
 # sys.path.append('C:/Users/jothi/OneDrive - UCB-O365/PhD/UQ_research/ACCESS_UQ/GenMod-NN/GenMod_omp')
 # out_dir_ini = 'C:/Users/jothi/OneDrive - UCB-O365/PhD/UQ_research/ACCESS_UQ/GenMod-NN/GenMod_omp/output/duff_osc_ppr'
@@ -49,6 +51,7 @@ sys.path.append('/home/jothi/CoSaMP_genNN')
 #out_dir_ini = f'../output/titan_ppr/results'
 # Redirect stdout to a file
 #sys.stdout = open(f'{out_dir_ini}/plots/log_printed.txt', 'w')
+import genmod.run_optimizations as ro
 import genmod_mod_test.polynomial_chaos_utils as pcu
 import genmod_mod_test.Gmodel_NN as gnn
 import genmod_mod_test.train_NN_omp_wptmg_test as tnn
@@ -74,6 +77,7 @@ parser.add_argument('--p_h',dest='ph',default=3,type=int,help='p_h')
 parser.add_argument('--hub',dest='h_ubnd',default=22,type=int,help='p_h')
 parser.add_argument('--p_0',dest='p0',default=2,type=int,help='p_0')
 parser.add_argument('--d',dest='dim',default=21,type=int,help='d')
+parser.add_argument('--use_gmd',dest='use_gmd',default=0,type=int,help='d')
 parser.add_argument('--cini_fl',dest='cht_ini_fl',default='None',type=str,help='file name with the path for initial omp coefficients for reproducing/debugging')
 parser.add_argument('--ntrial',dest='num_trl',default=10,type=int,help='num_trials')
 parser.add_argument('--dbg',dest='debug_alg',default=0,type=int,help='1-flag for switching to debugging')
@@ -258,6 +262,7 @@ if pltdta:
 #
 data_all = {'y_data':y_data,'u_data':u_data} 
 mi_mat = pcu.make_mi_mat(d, p)
+mi_mat_p0 = pcu.make_mi_mat(d, p_0)
 df_mimat = pd.DataFrame(mi_mat)
 df_mimat.to_csv(f'{out_dir_ini}/mi_mat_pd={p,d}.csv',index=False)
 P = np.size(mi_mat,0)  
@@ -549,8 +554,32 @@ for j in j_rng:
 ##==========================================================================================================
 #======================================================================================
 #======================================================================================
+    import pdb; pdb.set_trace()
     if args.debug_alg==1:
         c_ini, S_omp0, train_err_p0, valid_err_p0,P_omp,mi_mat_omp, Psi_omp = omu.omp_utils_order_ph_dummy(out_dir_ini,args.cht_ini_fl,d,p_0,y_data,u_data,data_tst,optim_indices,chc_Psi,chc_omp_slv,S_omp0,j)
+    elif args.use_gmd==1:
+        print("inside genmod loop")
+        opt_lst = [*[f'optim.{t_in}' for t_in in range(int(N*4/5))],*[f'valid.{v_in}' for v_in in range(int(N/5))]]
+        opt_params_gmd = {'beta1': 0.9, 'beta2': 0.999, 'epsilon': 1e-8, 'stepSize': 0.001,
+                      'maxIter': 100000, 'objecTol': 1e-6, 'ALIter': 10,
+                      'resultCheckFreq': 10, 'updateLambda': True,
+                      'switchSigns': False, 'useLCurve': False, 'showLCurve': False,'Nvlrp': 1}
+        df_opt_params_gmd = pd.DataFrame(opt_params_gmd,index=[0])
+        df_opt_params_gmd.to_csv(f'{out_dir_ini}/params_genmod_org_adam_N={N}.csv')
+        indices_gmd = indices0.copy()
+        indices_gmd = indices_gmd.set_axis(opt_lst,axis=1)
+        
+        #import pdb;pdb.set_trace()
+        c_ini,Psi_omp =  ro.run_genmod(j_rng[0], j_rng[0],'1dellps_gmdorg_n=' + str(N), d, p_0, data_all,indices_gmd,
+              f'{out_dir_ini}/plots', N, Nv, chc_Psi,mi_mat_p0,2*d+1, lasso_eps=1e-10,
+              lasso_iter=1e5, lasso_tol=1e-4, lasso_n_alphas=100,
+              opt_params=opt_params_gmd)
+        #df_cgmd = pd.read_csv('../output/titan_ppr/results/csaug13/d=21/p=3/ref_dbg/gmd_org/1dellps_gmdorg_n=100_genmod_kmin=0_1.csv')
+        #c_ini = df_cgmd['Coefficients'].to_numpy().flatten()
+        mi_mat_omp = np.copy(mi_mat_p0)
+        P_omp = np.size(mi_mat_omp,0)
+        #S_omp0 = np.nonzero(c_ini) 
+        train_err_p0, valid_err_p0 = tnn.val_test_err(data_tst,mi_mat_omp,c_ini)
     else:
         c_ini, S_omp0, train_err_p0, valid_err_p0,P_omp,mi_mat_omp, Psi_omp = omu.omp_utils_order_ph(out_dir_ini,d,p_0,y_data,u_data,data_tst,optim_indices,chc_Psi,chc_omp_slv,S_omp0,j)
     import pdb;pdb.set_trace()
@@ -762,6 +791,7 @@ for j in j_rng:
             print('cini_sbmind',cini_sbmind)
             print('cr_mxind',cr_mxind)
             ntpk_cr = np.size(cr_mxind)
+            import pdb;pdb.set_trace()
             random.seed(seed_ceff+j)
             rnd_smp_dict = {'cr_mxind':cr_mxind,'cini_sbmind':cini_sbmind,'cini_nz_ln':cini_nz_ln,'cini_z':cini_z,'ntpk_cr':ntpk_cr,'cini_z_ln':cini_z_ln,'cini_nz':cini_nz}
             #for itvl_ind in range(Nrp_vl):
