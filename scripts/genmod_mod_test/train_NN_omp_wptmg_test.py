@@ -119,7 +119,6 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc
         # else:
         #     alph_in = multi_index_matrix
         if epoch==0:
-            
             if TSIG==0:
                 nn.utils.vector_to_parameters(thet, GNNmod.parameters())
             else:
@@ -129,8 +128,12 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc
                 print("nprm_tnthet",nprm_tnthet)
                 nn.utils.vector_to_parameters(torch.Tensor(np.random.rand(nprm_tnthet)), GNNmod.parameters())
             #breakpoint()
-            prm_ini_dict = (GNNmod.state_dict()).copy() 
-            print("prm_ini_dict",prm_ini_dict)
+            print('GNNmod_dict',)
+            #prm_ini_dict = GNNmod.state_dict().copy() 
+            #print("epoch",epoch,"prm_ini_dict",prm_ini_dict)
+            #FIXME:
+            checkpoint = Checkpoint.from_dict({"epoch": epoch,"train_app":cost,"val_app":cost_val,"thet_ini":GNNmod.state_dict()})
+            session.report({'loss_met':total_val_up,'train_loss':total,'ep_best':epoch},checkpoint=checkpoint)
             G_NN_full = GNNmod(alph_in_tot,[cnfg_tn.get(f'a{lyr2}') for lyr2 in range(Nlhid)],Nt_ind).flatten()      
             G_ini = G_NN_full.detach().numpy()
             # thet_i = thet.detach().numpy() #it is gonna keep changing the parameters even if it is defined for epoch=0.
@@ -185,15 +188,18 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc
            ep_bst = epoch            
         if epoch == iter_fix: 
             costval_min = min(cost_val[:iter_fix+1]) 
-            prm_fx_dict =GNNmod.state_dict() 
+            checkpoint = Checkpoint.from_dict({"epoch": epoch,"thet_fx":GNNmod.state_dict()})
+            session.report({'loss_met':total_val,'train_loss':total,'ep_best':epoch},checkpoint=checkpoint)
             print('costval_min',costval_min)
             print('epoch',epoch,'total_val_up',total_val_up)
+            #print("epoch",epoch,"prm_ini_dict",prm_ini_dict)
+            #print("epoch",epoch,"prm_fx_dict",prm_fx_dict)
         if epoch >iter_fix:
             if total_val_up < total_val and epoch==iter_fix+1:
-                print("prm_ini_dict",prm_ini_dict)
+                #print("prm_ini_dict",prm_ini_dict)
                 #print('cost',cost)
                 print('epoch',epoch,'validation error starts increasing after a fixed number of iterations')
-                checkpoint = Checkpoint.from_dict({"epoch": epoch,"train_app":cost,"val_app":cost_val,"thet":thet_bst.detach().numpy(),"G_ini":G_ini,"prm_ini":prm_ini_dict,'prm_fx_dict':prm_fx_dict})
+                checkpoint = Checkpoint.from_dict({"epoch": epoch,"train_app":cost,"val_app":cost_val,"thet":thet_bst.detach().numpy()})
                 #breakpoint()
                 session.report({'loss_met':costval_min,'train_loss':cost[ep_bst],'ep_best':ep_bst},checkpoint=checkpoint)
                 break
@@ -201,12 +207,12 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc
                 if total_val <= total_val_up:
                     print('epoch',epoch,'validation error decreases after a fixed number of iterations')
                     if epoch == epochs-1:     
-                        checkpoint = Checkpoint.from_dict({"epoch": epoch,"train_app":cost,"val_app":cost_val,"thet":thet_bst.detach().numpy(),"G_ini":G_ini,"prm_ini":prm_ini_dict,'prm_fx_dict':prm_fx_dict})
+                        checkpoint = Checkpoint.from_dict({"epoch": epoch,"train_app":cost,"val_app":cost_val,"thet":thet_bst.detach().numpy()})
                         session.report({'loss_met':total_val,'train_loss':total,'ep_best':ep_bst},checkpoint=checkpoint)
                 else:
-                    print("prm_ini_dict",prm_ini_dict)
+                    #print("prm_ini_dict",prm_ini_dict)
                     print('epoch',epoch,'validation error increases/stays constant after a fixed number of iterations')
-                    checkpoint = Checkpoint.from_dict({"epoch": epoch,"train_app":cost,"val_app":cost_val,"thet":thet_bst.detach().numpy(),"G_ini":G_ini,"prm_ini":prm_ini_dict,'prm_fx_dict':prm_fx_dict})
+                    checkpoint = Checkpoint.from_dict({"epoch": epoch,"train_app":cost,"val_app":cost_val,"thet":thet_bst.detach().numpy()})
                     session.report({'loss_met':total_val_up,'train_loss':cost[ep_bst],'ep_best':ep_bst},checkpoint=checkpoint)
                     break
                     

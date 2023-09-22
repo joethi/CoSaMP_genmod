@@ -67,7 +67,8 @@ class GenNN(nn.Module):
                 else:
                     activation = avtn_lst[k](lin_map(activation))        
             else:
-                    activation = torch.exp(-lin_map(activation))        
+                    #activation = torch.exp(-lin_map(activation))        
+                    activation = torch.abs(lin_map(activation))        
 
         return activation
 #%% Triple layer:

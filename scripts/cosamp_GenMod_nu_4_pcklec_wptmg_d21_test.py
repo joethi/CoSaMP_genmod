@@ -72,13 +72,16 @@ parser.add_argument('--Nt',dest='N_t',default=1,type=int,help='Number of total i
 parser.add_argument('--Nrep',dest='N_rep',default=1,type=int,help='Number of sample replications')
 parser.add_argument('--Nlhid',dest='N_hid',default=1,type=int,help='Number of sample replications')
 parser.add_argument('--epochs',dest='ep',default=15000,type=int,help='Number of epochs')
-parser.add_argument('--iter_fix',dest='it_fix',default=9999,type=int,help='Number of epochs')
+parser.add_argument('--iter_fix',dest='it_fix',default=9999,type=int,help='After this number the metric is evaluated')
 parser.add_argument('--p_h',dest='ph',default=3,type=int,help='p_h')
-parser.add_argument('--hub',dest='h_ubnd',default=22,type=int,help='p_h')
+parser.add_argument('--hbd',dest='h_bnd',nargs='+',default=[1,7],type=int,help='p_h')
 parser.add_argument('--p_0',dest='p0',default=2,type=int,help='p_0')
+parser.add_argument('--top_i1',dest='topi1',default=2,type=int,help='p_0')
+parser.add_argument('--top_i0',dest='topi0',default=3,type=int,help='p_0')
+parser.add_argument('--vlcf_add',dest='vlcfadd',default=0,type=int,help='p_0')
 parser.add_argument('--d',dest='dim',default=21,type=int,help='d')
 parser.add_argument('--use_gmd',dest='use_gmd',default=0,type=int,help='d')
-parser.add_argument('--cini_fl',dest='cht_ini_fl',default='None',type=str,help='file name with the path for initial omp coefficients for reproducing/debugging')
+parser.add_argument('--cini_fl',dest='cht_ini_fl',default='/home/jothi/CoSaMP_genNN/output/titan_ppr/results/csaug13/d=21/p=3/ref_dbg/ttne_913_j2smx2S_Nt5/plots/j=1/it=3/c_hat_tot_1dellps_n=100_genmod_S=7_3_j1_c0.csv',type=str,help='file name with the path for initial omp coefficients for reproducing/debugging')
 parser.add_argument('--ntrial',dest='num_trl',default=10,type=int,help='num_trials')
 parser.add_argument('--dbg',dest='debug_alg',default=0,type=int,help='1-flag for switching to debugging')
 parser.add_argument('--j_rng',dest='j_flg',nargs='+',default=0,type=int,help='0 if all the repications needed, a list having necessary replication numbers otherwise')
@@ -114,8 +117,8 @@ chc_Psi = 'Hermite'
 chc_omp_slv= 'stdomp'#'ompcv' #'stdomp' #FIXME  
 tune_sg = args.tune_sig
 pltdta = args.plot_dat #switch to 1 if data should be plotted.
-top_i1 = 3 #int(4*cini_nz_ln/5-ntpk_cr), ntpk_cr = top_i1. 4*cini_nz_ln/5 should be > ntpk_cr
-top_i0 = 3 
+top_i1 = args.topi1 #int(4*cini_nz_ln/5-ntpk_cr), ntpk_cr = top_i1. 4*cini_nz_ln/5 should be > ntpk_cr
+top_i0 = args.topi0 
 #Seed values:
 seed_ind = 1
 seed_thtini = 1
@@ -124,7 +127,7 @@ seed_ceff = 2
 random.seed(seed_ind) # FIXME set seeding for reproducibility/debugging purposes.
 #Hid = args.N_Hid # number of neurons
 Nlhid = args.N_hid
-hid_layers = [tune.randint(7,args.h_ubnd) for __ in range(Nlhid)] 
+hid_layers = [tune.randint(args.h_bnd[0],args.h_bnd[1]) for __ in range(Nlhid)] 
 GNNmod_ini = gnn.GenNN([d] + [hid_layers[hly].sample() for hly in range(len(hid_layers))] +[1])
 z_n = sum(prm_NN.numel() for prm_NN in GNNmod_ini.state_dict().values())
 
@@ -288,7 +291,7 @@ Nrep = args.N_rep
 j_rng = range(Nrep) if args.j_flg==0 else args.j_flg #range(Nrep) ---change this to run for a particular replication. Useful for debugging.
 #% Save parameters:
 opt_params = {'ph':p,'p0':p_0,'d':d,'epochs':epochs,'lr':learning_rate,'Sh':sprsty,'S0':S_omp0,
-        'N_t':tot_itr,'fr':freq,'W_fac':f'{W_fac}','z_n':z_n,'Tp_i1':top_i1,'Tp_i0':top_i0,'N':N,'Nv':Nv,'Nrep':Nrep,'Nc_rp':Nc_rp,'S_chs':S_chs,'chc_poly':chc_Psi,'sd_ind':seed_ind,'sd_thtini':seed_thtini,'sd_ceff':seed_ceff,'Nrp_vl':Nrp_vl,"sd_thtini_2nd":sd_thtini_2nd}
+        'N_t':tot_itr,'fr':freq,'W_fac':f'{W_fac}','z_n':z_n,'Tp_i1':top_i1,'Tp_i0':top_i0,'N':N,'Nv':Nv,'Nrep':Nrep,'Nc_rp':Nc_rp,'S_chs':S_chs,'chc_poly':chc_Psi,'sd_ind':seed_ind,'sd_thtini':seed_thtini,'sd_ceff':seed_ceff,'Nrp_vl':Nrp_vl,"sd_thtini_2nd":sd_thtini_2nd,'iter_fix':args.it_fix}
 #import pdb;pdb.set_trace() 
 df_params = pd.DataFrame(opt_params,index=[0])
 df_params.to_csv(f'{out_dir_ini}/plots/params_genmod_omp_N={N}_ini.csv')
@@ -554,7 +557,7 @@ for j in j_rng:
 ##==========================================================================================================
 #======================================================================================
 #======================================================================================
-    import pdb; pdb.set_trace()
+    #import pdb; pdb.set_trace()
     if args.debug_alg==1:
         c_ini, S_omp0, train_err_p0, valid_err_p0,P_omp,mi_mat_omp, Psi_omp = omu.omp_utils_order_ph_dummy(out_dir_ini,args.cht_ini_fl,d,p_0,y_data,u_data,data_tst,optim_indices,chc_Psi,chc_omp_slv,S_omp0,j)
     elif args.use_gmd==1:
@@ -791,19 +794,29 @@ for j in j_rng:
             print('cini_sbmind',cini_sbmind)
             print('cr_mxind',cr_mxind)
             ntpk_cr = np.size(cr_mxind)
-            import pdb;pdb.set_trace()
+            #import pdb;pdb.set_trace()
             random.seed(seed_ceff+j)
             rnd_smp_dict = {'cr_mxind':cr_mxind,'cini_sbmind':cini_sbmind,'cini_nz_ln':cini_nz_ln,'cini_z':cini_z,'ntpk_cr':ntpk_cr,'cini_z_ln':cini_z_ln,'cini_nz':cini_nz}
             #for itvl_ind in range(Nrp_vl):
-            #trn_ind_nz = random.sample(cini_sbmind.tolist(), int(4*cini_nz_ln/5-ntpk_cr)) #to include all top 10.
+            trn_ind_nz = random.sample(cini_sbmind.tolist(), int(4*cini_nz_ln/5-ntpk_cr)) #to include all top 10.
             #print('trn_ind_nz',trn_ind_nz)
             ##trn_ind_nz = random.sample(cini_sbmind.tolist(), int(4*cini_nz_ln/5)) 
-            #trn_ind_z = random.sample(cini_z.tolist(),int(4*cini_z_ln/5))
+            trn_ind_z = random.sample(cini_z.tolist(),int(4*cini_z_ln/5))
             #added lines to be uncommented
             #=============================================================
-            config_tune['tind_nz'] = tune.sample_from(lambda _: random.sample(cini_sbmind.tolist(), int(4*cini_nz_ln/5-ntpk_cr)))
+            if args.debug_alg==0: 
+                config_tune['tind_nz'] = tune.sample_from(lambda _: random.sample(cini_sbmind.tolist(), int(4*cini_nz_ln/5-ntpk_cr-args.vlcfadd)))
 
-            config_tune['tind_z'] =  tune.sample_from(lambda _: random.sample(cini_z.tolist(),int(4*cini_z_ln/5)))
+                config_tune['tind_z'] =  tune.sample_from(lambda _: random.sample(cini_z.tolist(),int(4*cini_z_ln/5+args.vlcfadd)))
+            elif args.debug_alg==2:
+                df_trn_ind = pd.read_csv('/home/jothi/CoSaMP_genNN/output/titan_ppr/results/csaug13/d=21/p=3/ref_dbg/plots_abs/trn_indices_alph_omp_N=100_0_c0.csv')
+                trn_ind_dbg_fl = df_trn_ind['trn_ind_nw'].to_numpy() 
+                t_indnz_sbmx_dbg = [3,4,16,196]
+                trn_ind_dbg_1 = np.setdiff1d(trn_ind_dbg_fl,cr_mxind)
+                trn_indz_dbg = np.setdiff1d(trn_ind_dbg_1,t_indnz_sbmx_dbg) 
+                config_tune['tind_nz'] = tune.sample_from(lambda _:t_indnz_sbmx_dbg)
+                config_tune['tind_z'] =  tune.sample_from(lambda _:trn_indz_dbg) 
+                import pdb; pdb.set_trace()
             print('config_tune',config_tune)
             #=============================================================
             # trn_ind_nw = np.concatenate((trn_ind_nz,trn_ind_z),axis=None) 
@@ -857,7 +870,7 @@ for j in j_rng:
                 pickle.dump(best_config,bprms_pickl)
             print("Best hyperparameters found were: ",best_config)
             GNNmod = gnn.GenNN([d] + [best_config.get(f'h{lyr}') for lyr in range(Nlhid)] +[1])
-            import pdb; pdb.set_trace()
+            #import pdb; pdb.set_trace()
             best_result_df = best_result.metrics_dataframe
             best_epoch = best_result_df['ep_best'].to_numpy().flatten() 
             #cost = best_result_df['train_loss'].to_numpy().flatten() 
@@ -869,8 +882,23 @@ for j in j_rng:
             cost_val = best_chckpnt_dict.get("val_app")      
             torch.save(best_chckpnt_dict,f'{out_dir_ini}/plots/j={j}/it={i}/model_best_cpt_i{i}_j{j}.pt')
 
+            #retrives initial checkpoint:
+            bcpt_path = best_checkpoint.path
+            index_cpt = bcpt_path.find("checkpoint_")
+            index_uscr = index_cpt+len("checkpoint_")
+            add_strng_pth =  str(0).zfill(len(bcpt_path[index_uscr:]))
+            ini_path = bcpt_path[:index_uscr] +add_strng_pth
+            inl_cptdir  = Checkpoint.from_directory(ini_path)
+            inl_cpt_dict = inl_cptdir.to_dict()
+            torch.save(inl_cpt_dict,f'{out_dir_ini}/plots/j={j}/it={i}/model_ini_cpt_i{i}_j{j}.pt')
+            #import pdb; pdb.set_trace()
             #retrives final checkpoint:
-            #FIXedME: some hardcoding:
+            add_strng_pth_fnl =  str(1).zfill(len(bcpt_path[index_uscr:]))
+            final_path = bcpt_path[:index_uscr] +add_strng_pth_fnl
+            final_cptdir  = Checkpoint.from_directory(final_path)
+            final_cpt_dict = final_cptdir.to_dict()
+            torch.save(final_cpt_dict,f'{out_dir_ini}/plots/j={j}/it={i}/model_fnl_cpt_i{i}_j{j}.pt')
+            import pdb; pdb.set_trace()
             #FIXME:seeding for initializing theta in the next iteration
             np.random.seed(i+sd_thtini_2nd)
             thet_upd = torch.Tensor(np.random.rand(z_n))
@@ -964,7 +992,7 @@ for j in j_rng:
             df_c_omp_rs = pd.DataFrame({'comp_rs':c_om_rs})
             df_c_omp_rs.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/comp_rs_1dellps_n={N}_genmod_S={sprsty}_{i}_j{j}_c{trc}.csv',index=False)               
             # cost_tot_1 = cost_tot[1:,:]
-            df_bepoch = pd.DataFrame({'ep_best':best_epoch},index=[0])
+            df_bepoch = pd.DataFrame({'ep_best':best_epoch[-1]},index=[0])
             df_bepoch.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/best_epoch_1dellps_n={N}_genmod_S={sprsty}_{i}_j{j}_c{trc}.csv',index=False)
             df_cost_tot = pd.DataFrame({'cost_t':np.array(cost)})
             df_cost_tot.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/cost_tot_1dellps_n={N}_genmod_S={sprsty}_{i}_j{j}_c{trc}.csv',index=False)
