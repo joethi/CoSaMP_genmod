@@ -65,6 +65,7 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc
     #cini_z  = rnd_smp_dict['cini_z']; cini_z_ln  = rnd_smp_dict['cini_z_ln'];  ntpk_cr = rnd_smp_dict['ntpk_cr'] 
     #cnfg_tn['tind_nz'] = tune.sample_from(lambda _: random.sample(cini_sbmind.tolist(), int(4*cini_nz_ln/5-ntpk_cr)))
     #cnfg_tn['tind_z'] =  tune.sample_from(lambda _: random.sample(cini_z.tolist(),int(4*cini_z_ln/5)))
+    #import pdb; pdb.set_trace()
     t_ind_nz = cnfg_tn['tind_nz']
     #print('t_ind_nz shape',len(t_ind_nz))
     #print('t_ind_nz ',t_ind_nz)

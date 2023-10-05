@@ -4,7 +4,7 @@ import numpy.linalg as la
 import genmod_mod.polynomial_chaos_utils as pcu
 import genmod_mod_test.train_NN_omp_wptmg_test as tnn
 
-def find_ls_coeff_usr_actset(Ph,S_lam,Lam_ls_lst,y_data,optim_indices,chc_Psi,u_data,mi_mat,data_tst,ls_ind):
+def find_ls_coeff_err_usr_actset(Ph,S_lam,Lam_ls_lst,y_data,optim_indices,chc_Psi,u_data,mi_mat,data_tst,ls_ind):
     Lam_ls_ini = np.array(Lam_ls_lst)  
     Lam_chs_rng = np.setdiff1d(np.arange(0,Ph),Lam_ls_ini)
     c_ls = np.zeros(Ph)
@@ -27,6 +27,13 @@ def find_ls_coeff_usr_actset(Ph,S_lam,Lam_ls_lst,y_data,optim_indices,chc_Psi,u_
    # df_epsuls = pd.DataFrame({'epsu_ls':valid_err_ls,'epsu_ls_tr':trn_err_ls},index=[0])
    # df_epsuls.to_csv(f'{out_dir_ini}/plots/epsuls_tst_1dellps_n={N}_p={p}_genmod_j{j}.csv',index=False)
 #======================================================================================
+def apply_lst_sqr_actset(Lam_ls,P,mi_mat,chc_Psi,u_data,y_data,optim_indices):
+    c_ls = np.zeros(P)
+    Psi = pcu.make_Psi_drn(y_data[optim_indices,:],mi_mat,Lam_ls,chc_Psi)
+    Psi_T = np.transpose(Psi)
+    c_ls_sht = (la.inv(Psi_T @ Psi) @ Psi_T @ u_data[optim_indices]).flatten()
+    c_ls[Lam_ls] = c_ls_sht
+    return c_ls 
 #======================================================================================
 #======================================================================================
 #======================================================================================

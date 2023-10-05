@@ -7,6 +7,7 @@ import numpy.linalg as la
 import genmod.decay_models as dm
 from genmod.utils import pickle_save
 import genmod.polynomial_chaos_utils as pcu
+import time 
 
 import importlib
 importlib.reload(dm)
@@ -47,6 +48,7 @@ def run_genmod(start_iter, stop_iter, fn, d, p, data_all, indices, outdir,Nt,Nv,
         # sys.stdout = open(outfile,'wt')
         # sys.stderr = sys.stdout
         min_lsvld = 0
+        gen_strt_tm = time.time()
         
         for k in range(Nvlrp):
             # Find optimization and validation indices
@@ -150,6 +152,10 @@ def run_genmod(start_iter, stop_iter, fn, d, p, data_all, indices, outdir,Nt,Nv,
     df_err.to_csv(f'{outdir}/{fn}_genmod_err_{Nt}.csv')
     print('Valid error',valid_err)
     print('Test error',test_err)       
+    gen_end_tm = time.time()
+    print("genmod runnig time",gen_end_tm -gen_strt_tm)    
+    df_time = pd.DataFrame({'time':gen_end_tm -gen_strt_tm},index=[0])
+    df_time.to_csv(f'{outdir}/{fn}_genmod_err_{Nt}_runtime.csv')
     import pdb;pdb.set_trace()    
     return cf,np.vstack((dmo.Psi, dmo.Psi_valid))
 #

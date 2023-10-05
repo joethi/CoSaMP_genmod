@@ -4,10 +4,65 @@ import genmod_mod.polynomial_chaos_utils as pcu
 import numpy as np
 import numpy.linalg as la
 import genmod_mod.train_NN_omp_wptmg as tnn
+import genmod_mod_test.test_coeffs_val_er_utils as tcu
 import pandas as pd
+import matplotlib.pyplot as plt
+import time
+import os
 import sys
     # Find initial signs with orthogonal matching pursuit (sklearn):
 def omp_utils_order_ph(out_dir_ini,d,p,y_data,u_data,data_tst,optim_indices,chc_Psi,chc_omp_slv,S_omp,j):
+    d_omp = d
+    p_omp = p
+    N = len(optim_indices)
+    #OMPCV, and without CV:
+    mi_mat_omp = pcu.make_mi_mat(d_omp, p_omp)
+    P_omp = np.size(mi_mat_omp,0)
+    Psi_time_strt = time.time()
+    Psi_omp = pcu.make_Psi(y_data[optim_indices,:d],mi_mat_omp,chc_Psi) 
+    Psi_time_end = time.time()
+    print('Psi_time for ph', Psi_time_end - Psi_time_strt)
+    #import pdb;pdb.set_trace()
+    if chc_omp_slv=='ompcv':
+        omp = lm.OrthogonalMatchingPursuitCV(cv=5, fit_intercept=False)   
+    elif chc_omp_slv=='stdomp':    
+    # S_omp0 = 26
+        omp = lm.OrthogonalMatchingPursuit(n_nonzero_coefs=S_omp,fit_intercept=False)
+    #    import pdb; pdb.set_trace() 
+    print('omp:',omp)
+    omp.fit(Psi_omp, u_data[optim_indices].flatten())
+    #  warnings.filterwarnings('error')
+    #  try:
+    #      omp.fit(Psi_omp, u_data[optim_indices].flatten())
+    #  except Warning as w:
+    #      print("Warning:", str(w))
+    #      import pdb;pdb.set_trace()
+    c_om_std = omp.coef_ 
+    c_ini = c_om_std
+    #    c_ini[74] = 0.001
+    #    c_ini[9] = 0
+    S_omp = np.size(np.nonzero(c_ini)[0])
+    print('S_0:', S_omp)
+    # c_ini = pd.read_csv(f'{out_dir_ini}/ini/ompcs/cini_1dellps_n=680_genmod_S=168_0.csv').to_numpy().flatten()
+    # Test on the data:
+    train_err_p, valid_err_p = tnn.val_test_err(data_tst,mi_mat_omp,c_ini)
+    # Testing error: is the error on the training data:
+    print(f'Training Error for c_ini: {train_err_p}')
+    # Validation error: is the error on the unseen data:
+    print(f'Validation Error for c_ini: {valid_err_p}')
+    df_comp0 = pd.DataFrame({'c_omp':c_ini})
+    df_comp0.to_csv(f'{out_dir_ini}/plots/j={j}/comp_1dellps_n={N}_genmod_S={S_omp}_p={p_omp}_j{j}.csv',index=False)
+    df_omp_err = pd.DataFrame({'valid_err':[valid_err_p],'test_err':[train_err_p]})
+    df_omp_err.to_csv(f'{out_dir_ini}/plots/j={j}/epsu_1dellps_n={N}_genmod_S={S_omp}_p={p_omp}.csv',index=False)
+    ##==========================================================================================================
+    return c_ini, S_omp, train_err_p, valid_err_p, P_omp, mi_mat_omp, Psi_omp
+def omp_utils_order_ph_prll(out_dir_ini,indices0,d,p,y_data,u_data,chc_Psi,chc_omp_slv,S_omp,Nv,j):
+    optim_indices = indices0.iloc[j].to_numpy()
+    valid_indices = np.setdiff1d(range(np.size(u_data)), optim_indices)
+    trains = [name for name in indices0.columns if name.startswith("optim")]
+    test_indices = indices0.loc[j][trains].to_numpy()
+    data_tst = {'y_data':y_data,'u_data':u_data,'val_ind':valid_indices,'test_ind':test_indices,'opt_ind':optim_indices,'Nv':Nv,
+            'chc_poly':chc_Psi,'chc_omp':chc_omp_slv}
     d_omp = d
     p_omp = p
     N = len(optim_indices)
@@ -48,7 +103,43 @@ def omp_utils_order_ph(out_dir_ini,d,p,y_data,u_data,data_tst,optim_indices,chc_
     df_omp_err = pd.DataFrame({'valid_err':[valid_err_p],'test_err':[train_err_p]})
     df_omp_err.to_csv(f'{out_dir_ini}/plots/j={j}/epsu_1dellps_n={N}_genmod_S={S_omp}_p={p_omp}.csv',index=False)
     ##==========================================================================================================
-    return c_ini, S_omp, train_err_p, valid_err_p, P_omp, mi_mat_omp, Psi_omp
+    return {"c":c_ini, "S":S_omp, "trn_err":train_err_p, "val_err":valid_err_p, "P":P_omp, "mi_mat":mi_mat_omp, 'Psi_omp':Psi_omp}
+
+def omp_err_for_var_S(S_true_78,S_strt,out_dir_ini,indices0,d,p_0,y_data,u_data,chc_Psi,chc_omp_slv,Nv,chc_lo,mi_mat,N,j):
+    os.makedirs(f'{out_dir_ini}/plots/j={j}',exist_ok=True)    
+    optim_indices = indices0.iloc[j].to_numpy()
+    valid_indices = np.setdiff1d(range(np.size(u_data)), optim_indices)
+    trains = [name for name in indices0.columns if name.startswith("optim")]
+    test_indices = indices0.loc[j][trains].to_numpy()
+    data_tst = {'y_data':y_data,'u_data':u_data,'val_ind':valid_indices,'test_ind':test_indices,'opt_ind':optim_indices,'Nv':Nv,
+            'chc_poly':chc_Psi,'chc_omp':chc_omp_slv}
+    val_omp_tot = []
+    trn_omp_tot = []    
+    for ls_ind in range(len(S_true_78)-S_strt+1):
+        if chc_lo=='SO':
+            c_ini, S_omp0, train_err_p0, valid_err_p0,P_omp,mi_mat_omp, Psi_omp = omp_utils_order_ph(out_dir_ini,d,p_0,y_data,u_data,data_tst,optim_indices,chc_Psi,chc_omp_slv,S_strt+ls_ind,j)
+            val_omp_tot.append(valid_err_p0)
+            trn_omp_tot.append(train_err_p0)
+        elif chc_lo=='LS':
+            P = int(np.math.factorial(d+p_0)/(np.math.factorial(d)*np.math.factorial(p_0)))
+            c_ls = tcu.apply_lst_sqr_actset(S_true_78[:S_strt+ls_ind],P,mi_mat,chc_Psi,u_data,y_data,optim_indices)
+            trn_err_ls, valid_err_ls = tnn.val_test_err(data_tst,mi_mat,c_ls)
+            S_omp0 = np.size(np.nonzero(c_ls)[0])
+            df_comp0 = pd.DataFrame({'coeff':c_ls})
+            df_comp0.to_csv(f'{out_dir_ini}/plots/j={j}/cls_1dellps_n={N}_genmod_S={S_omp0}_p={p_0}_j{j}.csv',index=False)
+            val_omp_tot.append(valid_err_ls)
+            trn_omp_tot.append(trn_err_ls)
+    df_err_ls = pd.DataFrame({'val':np.array(val_omp_tot),'trn':np.array(trn_omp_tot)})
+    df_err_ls.to_csv(f'{out_dir_ini}/plots/trnval_err_list_j{j}.csv',index=False)
+    plt.figure(j+1)
+    plt.plot(np.arange(S_strt,len(S_true_78)+1,1),np.array(val_omp_tot),'--b*',label='valid,j={j}')
+    plt.plot(np.arange(S_strt,len(S_true_78)+1,1),np.array(trn_omp_tot),'--r*',label='train,j={j}')
+    plt.xlabel('Sparsity')
+    plt.ylabel('Relative valdiation error')
+    plt.savefig(f'{out_dir_ini}/plots/trnvalerr_vs_S_j={j}.png',dpi=300)        
+
+    return {"val_err":val_omp_tot,"trn_err":trn_omp_tot,'j':j,'S':S_omp0} 
+
 def omp_utils_order_ph_dummy(out_dir_ini,cht_fl_rpdc,d,p,y_data,u_data,data_tst,optim_indices,chc_Psi,chc_omp_slv,S_omp,j):
     d_omp = d
     p_omp = p
