@@ -67,6 +67,71 @@ def make_Psi(y, multi_index_matrix,chc_poly):
                     Psi[k, i] = Psi[k, i] * Hmt[alpha[j], j]                    
 
     return Psi
+def make_Psi_prll(y, multi_index_matrix,chc_poly,k):
+    """Evaluate Legendre polynomial for each multi-index.
+
+    Args:
+        y (n x d np.array): n datapoints of dimension
+        multi_index_matrix (P x d np.array): P multi-indices of length d
+
+    Returns:
+        P x d np.array: matrix of Legendre polynomial evaluations
+
+    """
+    if chc_poly == 'Legendre':
+        P = np.size(multi_index_matrix, 0)
+        d = np.size(multi_index_matrix, 1)
+        n = np.size(y, 0)
+    
+        Psi = np.ones((n, P))
+        p = np.max(multi_index_matrix)  # largest polynomial order
+    
+        # Iterate through the datapoints
+        #for k in range(n):
+        Leg = np.zeros((p + 1, d))
+
+        # Evalulate 1D Legendre poly for each degree at datapoints.
+        # Note that we do not include 1/sqrt(2) in these values since we are
+        # othogonalizing using the 1/2 measure.
+
+        for i in range(p + 1):
+            Pn = sps.legendre(i)
+            Leg[i, :] = Pn(y[k, :]) * np.sqrt((2 * i + 1))
+
+        # Iterate through multi-indices and calculate multi-dim polynomial
+        for i in range(P):
+            alpha = multi_index_matrix[i, :]
+            for j in range(np.size(alpha, 0)):
+                Psi[k, i] = Psi[k, i] * Leg[alpha[j], j]
+    elif chc_poly=='Hermite':
+        P = np.size(multi_index_matrix, 0)
+        d = np.size(multi_index_matrix, 1)
+        n = np.size(y, 0)
+
+        Psi = np.ones((n, P))
+        p = np.max(multi_index_matrix)  # largest polynomial order
+
+        # Iterate through the datapoints
+        #for k in range(n):
+        Hmt = np.zeros((p + 1, d))
+
+        # Evalulate 1D Legendre poly for each degree at datapoints.
+        # Note that we do not include 1/sqrt(2) in these values since we are
+        # othogonalizing using the 1/2 measure.
+        # Check orthogonality of physicist and probabilistic Hermite polynomials.
+        for i in range(p + 1):
+            Pn = sps.hermite(i)
+            Hmt[i, :] = (Pn(y[k, :]/np.sqrt(2)) * 2**(-i/2))/np.sqrt(sps.factorial(i)) 
+        #if k ==0:
+        #    df_Hmt = pd.DataFrame(Hmt)
+        #    df_Hmt.to_csv('Hmt_samp.csv',index=False)
+        # Iterate through multi-indices and calculate multi-dim polynomial
+        for i in range(P):
+            alpha = multi_index_matrix[i, :]
+            for j in range(np.size(alpha, 0)):
+                Psi[k, i] = Psi[k, i] * Hmt[alpha[j], j]                    
+
+    return Psi[k,:]
 
 def make_Psi_hermite(y, multi_index_matrix):
     """Evaluate Legendre polynomial for each multi-index.
