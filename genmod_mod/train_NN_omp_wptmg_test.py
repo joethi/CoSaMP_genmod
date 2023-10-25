@@ -11,8 +11,11 @@ import matplotlib.pyplot as plt
 import torch
 import pandas as pd
 import torch.nn as nn
+import sys
+#sys.path.append('/home/jothi/CoSaMP_genNN')
 import genmod_mod.polynomial_chaos_utils as pcu
 from torch import linalg as LA
+import genmod_mod.Gmodel_NN as gnn
 #%% Train Model
 def loss_crit(ghat,g,W_fc,f_x,ind_vt):
     P = ghat.size(dim=0)
@@ -36,7 +39,10 @@ def loss_crit(ghat,g,W_fc,f_x,ind_vt):
     # L  = torch.sum(((ghat-g)**2))/(LA.norm(ghat)*torch.numel(G_ini))
     # Loss_crt = nn.MSELoss(reduction='sum')
     return L,Wt,L_uwt
-def train_theta(chat_omp, GNNmod, optimizer,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,H,t_ind,v_ind,freq,W_fc):
+def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,H,t_ind,v_ind,freq,W_fc,cnfg_tn,
+        chkpnt_dir=None,data_dir=None):
+   # print("sys path:",sys.path)
+    
     cost = []
     zer_str = []
     cost_rel = []
@@ -71,6 +77,11 @@ def train_theta(chat_omp, GNNmod, optimizer,thet_up,thet_str1, Nt_ind, alph_in_t
     # d_in = 1
     # G_upd_dict = np.zeros(P_in)
     # thet = thet_up.view(-1,1)
+    #GNNmod = gnn.GenNN(d_in,H,1)
+    #optimizer = torch.optim.Adam(GNNmod.parameters(), lr=learning_rate)
+    import pdb; pdb.set_trace()
+    GNNmod = gnn.GenNN(d_in,cnfg_tn['Hid'],1)
+    optimizer = torch.optim.Adam(GNNmod.parameters(), lr=cnfg_tn['lr'])
     for epoch in range(epochs):
         total=0
         if epoch%1000==0: 
@@ -144,7 +155,7 @@ def train_theta(chat_omp, GNNmod, optimizer,thet_up,thet_str1, Nt_ind, alph_in_t
     # plt.semilogy(np.linspace(0,epochs-1,epochs),cost,label='cost_itr = %s' % i)    
     # plt.legend()
     # print('cost',cost)
-    return cost,cost_val,thet_f,thet_bst,zer_str
+    return cost_uwt,cost_uwt_val,cost_rel,cost_val_rel,cost,cost_val,thet_f,thet_bst,zer_str,thet_dict1
 def val_test_err(data_tst,mi_mat_t,c):
     y_data  = data_tst['y_data']
     u_data  = data_tst['u_data']    

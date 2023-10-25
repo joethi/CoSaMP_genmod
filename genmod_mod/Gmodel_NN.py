@@ -32,13 +32,14 @@ class GenNN(nn.Module):
         self.a1 = self.lin1(alpha)
         # self.Rl1 = torch.exp(-(self.a1)**2)
         # a1_n = self.a1
+#        self.Rl1 = nn.Sigmoid()(self.a1)
         self.Rl1 = (self.a1)
         y_hid = self.lin2(self.Rl1)
         chat    = torch.exp(-y_hid)
-        if it_ind==4:
-            self.Rl1 = sigmoid(self.a1)
-            y_hid = self.lin2(self.Rl1)
-            chat    = torch.exp(-y_hid)
+#        if it_ind==4:
+#            self.Rl1 = sigmoid(self.a1)
+#            y_hid = self.lin2(self.Rl1)
+#            chat    = torch.exp(-y_hid)
         # print('y1-b:',self.a1)
         # print('y1:',torch.t(self.Rl1))
         # print('y2:',torch.t(y_hid))

@@ -18,12 +18,8 @@ def loss_crit(ghat,g,W_fc,f_x,ind_vt):
     P = ghat.size(dim=0)
     #weighted loss:
     # Wt = W_fc * ghat
-    # Wt = f_x[ind_vt]
-    if W_fc==1:
-        Wt = torch.ones(P)
-    else:
-        Wt = W_fc * ghat
-        #print("Wt:",Wt)
+    # Wt = f_x[ind_vt]      
+    Wt = torch.ones(P)
     # Wt_sqt = torch.sqrt(Wt)
     Lsqr_diff  = Wt*(ghat-g)**2
     L  = torch.sum(Lsqr_diff)    #weighted sum.
@@ -36,7 +32,7 @@ def loss_crit(ghat,g,W_fc,f_x,ind_vt):
     # L  = torch.sum(((ghat-g)**2))/(LA.norm(ghat)*torch.numel(G_ini))
     # Loss_crt = nn.MSELoss(reduction='sum')
     return L,Wt,L_uwt
-def train_theta(chat_omp, GNNmod, optimizer,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,H,t_ind,v_ind,freq,W_fc):
+def train_theta(chat_omp, GNNmod, optimizer,thet_up,thet_str1, i, alph_in_tot,epochs,H,t_ind,v_ind,freq,W_fc):
     cost = []
     zer_str = []
     cost_rel = []
@@ -86,7 +82,7 @@ def train_theta(chat_omp, GNNmod, optimizer,thet_up,thet_str1, Nt_ind, alph_in_t
             nn.utils.vector_to_parameters(thet, GNNmod.parameters())
             # thet_i = thet.detach().numpy() #it is gonna keep changing the parameters even if it is defined for epoch=0.
             G_ini = G_omp        
-        G_NN = GNNmod(alph_in,Nt_ind).flatten()
+        G_NN = GNNmod(alph_in).flatten()
         # G_NN_h = dmold.G_NN_nphrdcd(thet, alph_in,H)
         # print('G_NN',G_NN)
         # print('G_ver',G_ver)
@@ -113,7 +109,7 @@ def train_theta(chat_omp, GNNmod, optimizer,thet_up,thet_str1, Nt_ind, alph_in_t
         total=loss.item() 
         total_uwt = loss_uwt.item()
         # Validation Loss:
-        G_NN_val = GNNmod(alph_in_val,Nt_ind).flatten()            
+        G_NN_val = GNNmod(alph_in_val).flatten()            
         loss_val, W_val,loss_uwt_val = loss_crit(G_omp_val,G_NN_val,W_fc,f_x,v_ind)
         total_val = loss_val.item()
         total_uwt_val = loss_uwt_val.item()
@@ -144,7 +140,7 @@ def train_theta(chat_omp, GNNmod, optimizer,thet_up,thet_str1, Nt_ind, alph_in_t
     # plt.semilogy(np.linspace(0,epochs-1,epochs),cost,label='cost_itr = %s' % i)    
     # plt.legend()
     # print('cost',cost)
-    return cost,cost_val,thet_f,thet_bst,zer_str
+    return cost_uwt,cost_uwt_val,cost_rel,cost_val_rel,cost,cost_val,thet_f,thet_bst,zer_str,thet_dict1
 def val_test_err(data_tst,mi_mat_t,c):
     y_data  = data_tst['y_data']
     u_data  = data_tst['u_data']    

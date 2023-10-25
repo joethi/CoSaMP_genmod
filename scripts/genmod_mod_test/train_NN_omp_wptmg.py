@@ -144,7 +144,7 @@ def train_theta(chat_omp, GNNmod, optimizer,thet_up,thet_str1, Nt_ind, alph_in_t
     # plt.semilogy(np.linspace(0,epochs-1,epochs),cost,label='cost_itr = %s' % i)    
     # plt.legend()
     # print('cost',cost)
-    return cost,cost_val,thet_f,thet_bst,zer_str
+    return cost_uwt,cost_uwt_val,cost_rel,cost_val_rel,cost,cost_val,thet_f,thet_bst,zer_str,thet_dict1
 def val_test_err(data_tst,mi_mat_t,c):
     y_data  = data_tst['y_data']
     u_data  = data_tst['u_data']    
