@@ -52,13 +52,13 @@ sys.path.append('/home/jothi/CoSaMP_genNN/scripts/GenMod-org-Hmt')
 #out_dir_ini = f'../output/titan_ppr/results'
 # Redirect stdout to a file
 #sys.stdout = open(f'{out_dir_ini}/plots/log_printed.txt', 'w')
-import genmod.run_optimizations as ro
+import genmod.run_optimizations_rsdl as ro
 import genmod_mod_test.polynomial_chaos_utils as pcu
 import genmod_mod_test.Gmodel_NN as gnn
 import genmod_mod_test.train_NN_omp_wptmg_test as tnn
 import genmod_mod_test.omp_utils as omu
 import genmod_mod_test.test_coeffs_val_er_utils as tcu
-import genmod_mod_test.mo_main_fn as mmf
+import genmod_mod_test.mo_main_fn_gmd as mmf
 import warnings
 #import omp as omp1
 #from genmod_mod import Gmodel_NN as gnn_test
@@ -92,7 +92,7 @@ parser.add_argument('--res_tol',dest='resomp_tol',default=1e-10,type=float,help=
 parser.add_argument('--ompsol',dest='chc_omp',default='stdomp',type=str,help='p_h')
 parser.add_argument('--poly',dest='chc_poly',default='Hermite',type=str,help='p_h')
 parser.add_argument('--qoi',dest='QoI',default='heat_flux',type=str,help='quantity of Interest')
-parser.add_argument('--use_gmd',dest='use_gmd',default=0,type=int,help='d')
+parser.add_argument('--use_gmd',dest='use_gmd',default=0,type=int,help='1-use genmod coefficients for it=0, 2-to use it for it>0')
 parser.add_argument('--omponly',dest='omp_only',default=0,type=int,help='switch to use only OMP calculations')
 parser.add_argument('--so_res',dest='add_tpso_res',default=0,type=int,help='switch to use only OMP calculations')
 #parser.add_argument('--cini_fl',dest='cht_ini_fl',default='/home/jothi/CoSaMP_genNN/output/titan_ppr/results/csaug13/d=21/p=3/ref_dbg/ttne_913_j2smx2S_Nt5/plots/j=1/it=3/c_hat_tot_1dellps_n=100_genmod_S=7_3_j1_c0.csv',type=str,help='file name with the path for initial omp coefficients for reproducing/debugging')
@@ -760,6 +760,7 @@ if args.plt_spcdt>=0:
 #import pdb; pdb.set_trace()
 #=================================================================================
 #=================================================================================
+#import pdb; pdb.set_trace()
 num_workers = args.num_work
 part_main_func = partial(mmf.mo_main_utils_function_prll,data_all,out_dir_ini,
                         opt_params,nn_prms_dict,indices0,args,eps_u,W_fac,eps_abs)
