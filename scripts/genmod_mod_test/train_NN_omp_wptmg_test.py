@@ -127,7 +127,11 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc
                 GNNmod_dict = GNNmod.state_dict() 
                 nprm_tnthet = sum(p_el.numel() for p_el in GNNmod_dict.values())            
                 print("nprm_tnthet",nprm_tnthet)
-                nn.utils.vector_to_parameters(torch.Tensor(np.random.rand(nprm_tnthet)), GNNmod.parameters())
+                if Nt_ind==0:
+                    nn.utils.vector_to_parameters(torch.Tensor(np.random.rand(nprm_tnthet)), GNNmod.parameters())
+                else:
+                    nn.utils.vector_to_parameters(torch.Tensor(np.random.randn(nprm_tnthet)), GNNmod.parameters())
+                    
             #breakpoint()
             print('GNNmod_dict',)
             #prm_ini_dict = GNNmod.state_dict().copy() 
