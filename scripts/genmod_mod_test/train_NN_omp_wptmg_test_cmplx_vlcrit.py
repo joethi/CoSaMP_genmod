@@ -59,7 +59,6 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc
     # ter_str = []
     total=0
     total_val_up = 1e8
-    total_trn_up = 1e8
     P_alg = alph_in_tot.size(dim=0)
     #configuration tune testing:
     #cini_sbmind = rnd_smp_dict['cini_sbmind'];cini_nz_ln  = rnd_smp_dict['cini_nz_ln']
@@ -193,45 +192,43 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc
            total_val_up = total_val #try to use torch.clone for copying.
            thet_bst = torch.clone(thet_up_ep)
            ep_bst = epoch            
-           total_trn_up = total #try to use torch.clone for copying.
         #import pdb; pdb.set_trace()
-        #if epoch!=0:
-        #including this step messes up with ASHA scheduler: it performs early stopping!!
-        #    if epoch%100==0  and epoch!=epochs-1:    
-        #       print("epoch",epoch)
-        #       checkpoint = Checkpoint.from_dict({"epoch": epoch,f"thet_{epoch}":GNNmod.state_dict()})
-        #       session.report({'loss_met':total_val+total,'train_loss':total,'cost_val':total_val,'ep_best':epoch},checkpoint=checkpoint)
-        #       #import pdb; pdb.set_trace()
+        if epoch!=0:
+            if epoch%100==0  and epoch!=iter_fix:    
+               print("epoch",epoch)
+               checkpoint = Checkpoint.from_dict({"epoch": epoch,"thet_fx":GNNmod.state_dict()})
+               session.report({'loss_met':total_val+total,'train_loss':total,'cost_val':total_val,'ep_best':epoch},checkpoint=checkpoint)
+               #import pdb; pdb.set_trace()
             #breakpoint()
-        if epoch == epochs-1: 
-            costval_min = min(cost_val) 
-            checkpoint = Checkpoint.from_dict({"epoch": epoch,"thet_fx":GNNmod.state_dict(),"thet":thet_bst.detach().numpy(),"train_app":cost,"val_app":cost_val})
-            session.report({'loss_met':costval_min+total_trn_up,'train_loss':total,'cost_val':total_val,'ep_best':ep_bst},checkpoint=checkpoint)
+        if epoch == iter_fix: 
+            costval_min = min(cost_val[:iter_fix+1]) 
+            checkpoint = Checkpoint.from_dict({"epoch": epoch,"thet_fx":GNNmod.state_dict()})
+            session.report({'loss_met':total_val+total,'train_loss':total,'ep_best':epoch},checkpoint=checkpoint)
             print('costval_min',costval_min)
             print('epoch',epoch,'total_val_up',total_val_up)
             #print("epoch",epoch,"prm_ini_dict",prm_ini_dict)
             #print("epoch",epoch,"prm_fx_dict",prm_fx_dict)
-        #if epoch >iter_fix:
-        #    if total_val_up < total_val and epoch==iter_fix+1:
-        #        #print("prm_ini_dict",prm_ini_dict)
-        #        #print('cost',cost)
-        #        print('epoch',epoch,'validation error starts increasing after a fixed number of iterations')
-        #        checkpoint = Checkpoint.from_dict({"epoch": epoch,"train_app":cost,"val_app":cost_val,"thet":thet_bst.detach().numpy()})
-        #        #breakpoint()
-        #        session.report({'loss_met':costval_min+total,'train_loss':cost[ep_bst],'ep_best':ep_bst},checkpoint=checkpoint)
-        #        break
-        #    else:
-        #        if total_val <= total_val_up:
-        #            print('epoch',epoch,'validation error decreases after a fixed number of iterations')
-        #            if epoch == epochs-1:     
-        #                checkpoint = Checkpoint.from_dict({"epoch": epoch,"train_app":cost,"val_app":cost_val,"thet":thet_bst.detach().numpy()})
-        #                session.report({'loss_met':total_val+total,'train_loss':total,'ep_best':ep_bst},checkpoint=checkpoint)
-        #        else:
-        #            #print("prm_ini_dict",prm_ini_dict)
-        #            print('epoch',epoch,'validation error increases/stays constant after a fixed number of iterations')
-        #            checkpoint = Checkpoint.from_dict({"epoch": epoch,"train_app":cost,"val_app":cost_val,"thet":thet_bst.detach().numpy()})
-        #            session.report({'loss_met':total_val_up+total,'train_loss':cost[ep_bst],'ep_best':ep_bst},checkpoint=checkpoint)
-        #            break
+        if epoch >iter_fix:
+            if total_val_up < total_val and epoch==iter_fix+1:
+                #print("prm_ini_dict",prm_ini_dict)
+                #print('cost',cost)
+                print('epoch',epoch,'validation error starts increasing after a fixed number of iterations')
+                checkpoint = Checkpoint.from_dict({"epoch": epoch,"train_app":cost,"val_app":cost_val,"thet":thet_bst.detach().numpy()})
+                #breakpoint()
+                session.report({'loss_met':costval_min+total,'train_loss':cost[ep_bst],'ep_best':ep_bst},checkpoint=checkpoint)
+                break
+            else:
+                if total_val <= total_val_up:
+                    print('epoch',epoch,'validation error decreases after a fixed number of iterations')
+                    if epoch == epochs-1:     
+                        checkpoint = Checkpoint.from_dict({"epoch": epoch,"train_app":cost,"val_app":cost_val,"thet":thet_bst.detach().numpy()})
+                        session.report({'loss_met':total_val+total,'train_loss':total,'ep_best':ep_bst},checkpoint=checkpoint)
+                else:
+                    #print("prm_ini_dict",prm_ini_dict)
+                    print('epoch',epoch,'validation error increases/stays constant after a fixed number of iterations')
+                    checkpoint = Checkpoint.from_dict({"epoch": epoch,"train_app":cost,"val_app":cost_val,"thet":thet_bst.detach().numpy()})
+                    session.report({'loss_met':total_val_up+total,'train_loss':cost[ep_bst],'ep_best':ep_bst},checkpoint=checkpoint)
+                    break
                     
 
             #if total_val < total_val_up:

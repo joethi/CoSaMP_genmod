@@ -58,7 +58,7 @@ import genmod_mod_test.Gmodel_NN as gnn
 import genmod_mod_test.train_NN_omp_wptmg_test as tnn
 import genmod_mod_test.omp_utils as omu
 import genmod_mod_test.test_coeffs_val_er_utils as tcu
-import genmod_mod_test.mo_main_fn_gmd as mmf
+import genmod_mod_test.mo_main_fn_trn3rd_gmd as mmf
 import warnings
 #import omp as omp1
 #from genmod_mod import Gmodel_NN as gnn_test
@@ -74,35 +74,40 @@ parser.add_argument('--Nv',dest='N_v',default=4000,type=int,help='Number of vali
 parser.add_argument('--Nt',dest='N_t',default=5,type=int,help='Number of total iterations')
 parser.add_argument('--Nrep',dest='N_rep',default=1,type=int,help='Number of sample replications')
 parser.add_argument('--Nlhid',dest='N_hid',default=1,type=int,help='Number of sample replications')
-parser.add_argument('--epochs',dest='ep',default=15000,type=int,help='Number of epochs')
-parser.add_argument('--iter_fix',dest='it_fix',default=9999,type=int,help='After this number the metric is evaluated')
+parser.add_argument('--epochs',dest='ep',default=10000,type=int,help='Number of epochs')
+parser.add_argument('--iter_fix',dest='it_fix',default=10000,type=int,help='After this number the metric is evaluated')
 parser.add_argument('--nproc',dest='num_work',default=1,type=int,help='After this number the metric is evaluated')
 parser.add_argument('--sd_j',dest='sd_indic_ind',default=1,type=int,help='After this number the metric is evaluated')
 parser.add_argument('--p_h',dest='ph',default=3,type=int,help='p_h')
 parser.add_argument('--case',dest='case_ppr',default='ttn_78',type=str,help='ttn_78, ttn_21, 1dell_14')
 parser.add_argument('--hbd',dest='h_bnd',nargs='+',default=[7,8],type=int,help='p_h')
 parser.add_argument('--p_0',dest='p0',default=2,type=int,help='p_0')
-parser.add_argument('--top_i1',dest='topi1',default=2,type=int,help='p_0')
+parser.add_argument('--top_i1',dest='topi1',default=3,type=int,help='p_0')
 parser.add_argument('--top_i0',dest='topi0',default=3,type=int,help='p_0')
 parser.add_argument('--vlcf_add',dest='vlcfadd',default=0,type=int,help='p_0')
 parser.add_argument('--d',dest='dim',default=21,type=int,help='d')
 parser.add_argument('--dbgit2',dest='dbg_it2',default=0,type=int,help='change after the second iteration')
+parser.add_argument('--dbgnrn',dest='dbg_nrn',default=0,type=int,help='change after the second iteration')
 parser.add_argument('--S_chs',dest='chs_sprs',default=0,type=int,help='S_chs')
+parser.add_argument('--S_res',dest='sel_res',default=2,type=int,help='number to include top residual second order coefficients')
+parser.add_argument('--S_thrd',dest='sel_thrd',default=2,type=int,help='number to include top residual second order coefficients')
+parser.add_argument('--nfld',dest='Nfld_ls',default=5,type=int,help='d')
+parser.add_argument('--sdcvls',dest='rnd_st_cvls',default=1,type=int,help='d')
+parser.add_argument('--lscv',dest='ls_cv',default=0,type=int,help='d')
 parser.add_argument('--res_tol',dest='resomp_tol',default=1e-10,type=float,help='p_h')
-parser.add_argument('--lr',dest='l_r',default=0.001,type=float,help='learning rate')
 parser.add_argument('--ompsol',dest='chc_omp',default='stdomp',type=str,help='p_h')
 parser.add_argument('--poly',dest='chc_poly',default='Hermite',type=str,help='p_h')
 parser.add_argument('--qoi',dest='QoI',default='heat_flux',type=str,help='quantity of Interest')
 parser.add_argument('--use_gmd',dest='use_gmd',default=0,type=int,help='1-use genmod coefficients for it=0, 2-to use it for it>0')
 parser.add_argument('--omponly',dest='omp_only',default=0,type=int,help='switch to use only OMP calculations')
-parser.add_argument('--so_res',dest='add_tpso_res',default=0,type=int,help='switch to use only OMP calculations')
+parser.add_argument('--so_res',dest='add_tpso_res',default=0,type=int,help='0--select 3rd order and residual coeffs for active set, 1--add such that the maximum selection is 2S (previous approch in residual concept), 2--the simple COSAMP approach,3--to use the v3 OMP-select 2 residual 2nd order coefficient and 2 third order coefficients at most-2S on first iteration,4--for v4--add 2 residual coefficient to the active set and S-2 top G.')
 #parser.add_argument('--cini_fl',dest='cht_ini_fl',default='/home/jothi/CoSaMP_genNN/output/titan_ppr/results/csaug13/d=21/p=3/ref_dbg/ttne_913_j2smx2S_Nt5/plots/j=1/it=3/c_hat_tot_1dellps_n=100_genmod_S=7_3_j1_c0.csv',type=str,help='file name with the path for initial omp coefficients for reproducing/debugging')
-parser.add_argument('--cini_fl',dest='cht_ini_fl',default='/home/jothi/CoSaMP_genNN/output/titan_ppr/results/d78_ppr/ref_dbg/cls_1dellps_n=5000_genmod_S=7_p=3_j0.csv',type=str,help='file name with the path for initial omp coefficients for reproducing/debugging')
+parser.add_argument('--cini_fl',dest='cht_ini_fl',default='/home/jothi/CoSaMP_genNN/output/titan_ppr/results/d78_ppr/ref_dbg/cnst_lss_dbg/c_hat_tot_1dellps_n=125_genmod_S=12_1_j0_c0.csv',type=str,help='file name with the path for initial omp coefficients for reproducing/debugging, use dbg-1 for using this')
 parser.add_argument('--ntrial',dest='num_trl',default=10,type=int,help='num_trials')
 parser.add_argument('--S_fac',dest='mul_fac',default=2,type=int,help='1-flag for switching to debugging')
 parser.add_argument('--dbg',dest='debug_alg',default=0,type=int,help='1-flag for switching to debugging')
 parser.add_argument('--pltj',dest='plt_spcdt',default=-1,type=int,help='>0-flag for switching to any other sample')
-parser.add_argument('--dbg_act',dest='debug_act',default=0,type=int,help='1-flag for Relu alone,2-flag for None alone ')
+parser.add_argument('--dbg_act',dest='debug_act',default=2,type=int,help='1-flag for Relu alone,2-flag for None alone ')
 parser.add_argument('--tind',dest='dbg_rdtvind',default=0,type=int,help='1-flag for reading train/valid indices from file')
 parser.add_argument('--j_rng',dest='j_flg',nargs='+',default=0,type=int,help='0 if all the repications needed, a list having necessary replication numbers otherwise')
 parser.add_argument('--plot_dat',dest='plot_dat',default=0,type=int,help='plot u data?')
@@ -155,7 +160,10 @@ seed_ceff = 2
 random.seed(seed_ind) # FIXME set seeding for reproducibility/debugging purposes.
 #Hid = args.N_Hid # number of neurons
 Nlhid = args.N_hid
-hid_layers = [tune.randint(args.h_bnd[0],args.h_bnd[1]) for __ in range(Nlhid)] 
+if args.dbg_nrn==0:
+    hid_layers = [tune.randint(args.h_bnd[0],args.h_bnd[1]) for __ in range(Nlhid)] 
+else:
+    hid_layers = [tune.randint(15,16),tune.randint(20,21)] 
 GNNmod_ini = gnn.GenNN([d] + [hid_layers[hly].sample() for hly in range(len(hid_layers))] +[1])
 z_n = sum(prm_NN.numel() for prm_NN in GNNmod_ini.state_dict().values())
 
@@ -166,14 +174,15 @@ out_dir_ini = args.out_dir_prs
 #import pdb; pdb.set_trace()
 start_time = time.time()
 print('start and start time:',start_time,start_time)
-if os.path.exists(f'{out_dir_ini}/plots'):
-    print(f"{out_dir_ini}/plots already exists- Do you want to remove directory (Y/n)")
+if os.path.exists(f'{out_dir_ini}'):
+    print(f"{out_dir_ini} already exists- Do you want to remove directory (Y/n)")
     Answer = input()
     if Answer=="Y":
-        os.system(f'rm -r {out_dir_ini}/plots')
+        os.system(f'rm -r {out_dir_ini}')
     else:
         print("Directory exists already-exiting to prevent overwriting---")
         sys.exit()
+os.makedirs(f'{out_dir_ini}')
 os.makedirs(f'{out_dir_ini}/plots')
 #%% Load data
 ## CHANGE THE VALIDATION ERROR FUNCTION FOR ELLIPTIC EQUATION AS \PSI IS FROM LEGENDRE POLY:
@@ -516,13 +525,17 @@ data_all = {'y_data':y_data,'u_data':u_data,'mi_mat':mi_mat}
 #%% initial parameters:
 # sprsty = 43
 # sprsty = 5  #Think about giving sparsity=1, some matrix manipulations might get affected.
-learning_rate = args.l_r
+learning_rate = 0.001
 epochs = args.ep
 #avtnlst =['None' for a_m in range(Nlhid)]#[nn.Sigmoid()] # for the final layer by default exp decay is enforced, so the size is number of layers-1.
 if args.debug_act==1:
     avtnlst =['None'  if tune_sg==0 else tune.choice([nn.ReLU()]) for a_m in range(Nlhid)] #[nn.Sigmoid()] # for the final layer by default exp decay is enforced, so the size is number of layers-1.
 elif args.debug_act==2:
     avtnlst =['None'  if tune_sg==0 else tune.choice(['None']) for a_m in range(Nlhid)]    
+elif args.debug_act==3:
+    avtnlst =[tune.choice(['None']),tune.choice([nn.ReLU()])] 
+elif args.debug_act==4:
+    avtnlst =[tune.choice([nn.ReLU()]),tune.choice(['None'])] 
 else:
     avtnlst =['None'  if tune_sg==0 else tune.choice(['None',nn.Sigmoid(),nn.ReLU()]) for a_m in range(Nlhid)] #[nn.Sigmoid()] # for the final layer by default exp decay is enforced, so the size is number of layers-1.
 #import pdb; pdb.set_trace()
@@ -739,13 +752,14 @@ if args.plt_spcdt>=0:
 ##S_true_78 =[  0,   1,   2,   3,   4,   7,  10,  16,  17,  21,  82,  99, 142,232]
 ##S_true_78 = [  0,   2, 1,  3,21,4,82,99,16, 7,  10,  17, 142,232]#[ 0, 21,  2,  4,  3, 82, 99, 45, 16,  1]--top-10 21d problem.
 ##S_true_78 = [0, 21, 2, 4, 3, 2023, 82, 99, 45, 16]
-#S_true_78 = [0,2,3,4,7,10,15,17,18,21,225,2023]
+##S_true_78 = [0,2,3,4,7,10,15,17,18,21,225,2023]
+#S_true_78 = [  0,   1,   2,   3,   4,   5,   6,  22,  41,  42,  43,  50, 195, 441, 442, 460]
 ##S_true_78 = [0, 21,2] #, 9, 60,74]
 ##S_true_78 = [0, 2, 4, 15, 21, 43, 45, 62, 252,484, 486, 503]
 ##S_true_78 = [0,3,7,60]
 ##S_true_78 = S_true_78[:6]
-#P_0 = int(np.math.factorial(d+p_0)/(np.math.factorial(d)*np.math.factorial(p_0))) 
-#Lam_chs_rng = np.setdiff1d(np.arange(0,P_0),np.array(S_true_78))
+##P_0 = int(np.math.factorial(d+p_0)/(np.math.factorial(d)*np.math.factorial(p_0))) 
+##Lam_chs_rng = np.setdiff1d(np.arange(0,P_0),np.array(S_true_78))
 ##rnd_lst = random.sample(Lam_chs_rng.tolist(),2)
 ##rnd_lst =[18,225] #[80,228] #[18,225]
 ##S_true_78 = S_true_78 +  rnd_lst
@@ -762,6 +776,7 @@ if args.plt_spcdt>=0:
 #=================================================================================
 #=================================================================================
 #import pdb; pdb.set_trace()
+#%% To run parallel:
 #num_workers = args.num_work
 #part_main_func = partial(mmf.mo_main_utils_function_prll,data_all,out_dir_ini,
 #                        opt_params,nn_prms_dict,indices0,args,eps_u,W_fac,eps_abs)
@@ -770,6 +785,8 @@ if args.plt_spcdt>=0:
 #pool.close()
 #pool.join()    
 #import pdb; pdb.set_trace()
+print('CAUTION: Do not use it for the training that have more than two checkpoints--will create issues in getting right parameters')
+#For debugging:
 for j in j_rng:
     mmf.mo_main_utils_function_prll(data_all,out_dir_ini,opt_params,nn_prms_dict,indices0,args,eps_u,W_fac,eps_abs,j)
 #plt.show()

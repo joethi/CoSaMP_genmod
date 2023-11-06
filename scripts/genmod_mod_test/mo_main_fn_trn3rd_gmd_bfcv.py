@@ -55,7 +55,7 @@ sys.path.append('/home/jothi/CoSaMP_genNN/scripts/GenMod-org-Hmt')
 import genmod.run_optimizations_rsdl as ro
 import genmod_mod_test.polynomial_chaos_utils as pcu
 import genmod_mod_test.Gmodel_NN as gnn
-import genmod_mod_test.train_NN_omp_wptmg_test_bf_trn3rd as tnn
+import genmod_mod_test.train_NN_omp_wptmg_test as tnn
 import genmod_mod_test.omp_utils as omu
 import genmod_mod_test.test_coeffs_val_er_utils as tcu
 import warnings
@@ -444,7 +444,7 @@ def mo_main_utils_function_prll(data_all,out_dir_ini,opt_params,nn_prms_dict,ind
     # c_hat = c_ini[0:2]    
     # mi_mat_in = mi_mat_omp[0,:]
     # c_hat = c_ini[0]
-    mi_mat_in = mi_mat_omp
+    mi_mat_in = np.copy(mi_mat_omp)
     c_hat = np.copy(c_ini)
     cr_mxind = (np.argsort(np.abs(c_hat))[::-1])[:top_i0]
     # mi_mat_in = mi_mat_omp[S_fnl,:]
@@ -492,17 +492,16 @@ def mo_main_utils_function_prll(data_all,out_dir_ini,opt_params,nn_prms_dict,ind
         #zer_str_tmp = np.zeros_like(cost_tmp)
         for trc in range(Nc_rp):
             if i>0:
-                #mi_mat_in = mi_mat   
+                mi_mat_in = np.copy(mi_mat)   
                 #uncomment to run the code with the corresponding validation coefficients used for the previous iteration:
                 # c_hat = pd.read_csv(f'{out_dir_ini}/plots/j={j}/it={i-1}/comp_fl_1dellps_n={N}_genmod_S={S_omp}_{i-1}_j{j}_c{trc}.csv').to_numpy().flatten()   
-                #c_hat = pd.read_csv(f'{out_dir_ini}/plots/j={j}/it={i-1}/comp_fl_1dellps_n={N}_genmod_S={S_omp}_{i-1}_j{j}_c{int(ecmn_ind[i-1])}.csv').to_numpy().flatten()
+                c_hat = pd.read_csv(f'{out_dir_ini}/plots/j={j}/it={i-1}/comp_fl_1dellps_n={N}_genmod_S={S_omp}_{i-1}_j{j}_c{int(ecmn_ind[i-1])}.csv').to_numpy().flatten()
                 # NOTe: Here you won't be using more than Nc_rp=1.
-                c_hat = pd.read_csv(f'{out_dir_ini}/plots/j={j}/it={i-1}/comp_rs_1dellps_n={N}_genmod_S={S_omp}_{i-1}_j{j}_c{trc}.csv').to_numpy().flatten()
-                
+                #c_hat = pd.read_csv(f'{out_dir_ini}/plots/j={j}/it={i-1}/comp_rs_1dellps_n={N}_genmod_S={S_omp}_{i-1}_j{j}_c{trc}.csv').to_numpy().flatten()
                 cr_mxind = (np.argsort(np.abs(c_hat))[::-1])[:top_i1]
 
             #import pdb; pdb.set_trace()
-            P_alg = np.size(mi_mat_in,0)
+            P_alg = np.size(c_hat)
             cini_nz = np.nonzero(c_hat)[0]
             cini_nz_ln = np.size(cini_nz) 
             cini_z = np.setdiff1d(range(P_alg),cini_nz)
@@ -531,15 +530,15 @@ def mo_main_utils_function_prll(data_all,out_dir_ini,opt_params,nn_prms_dict,ind
             if args.dbg_rdtvind==1:
                 ##df_trn_ind = pd.read_csv('/home/jothi/CoSaMP_genNN/output/titan_ppr/results/csaug13/d=21/p=3/ref_dbg/plots_abs/trn_indices_alph_omp_N=100_0_c0.csv')
                 ##t_indnz_sbmx_dbg = [3,4,16,196]
-                df_trn_ind = pd.read_csv('/home/jothi/CoSaMP_genNN/output/titan_ppr/results/d78_ppr/ref_dbg/trn_indices_alph_omp_N=80_0_c0.csv')
-                trn_ind_dbg_fl = df_trn_ind['trn_ind_nw'].to_numpy() 
-                t_indnz_sbmx_dbg = [0,2,9,60]
-                trn_ind_dbg_1 = np.setdiff1d(trn_ind_dbg_fl,cr_mxind)
-                trn_indz_dbg = np.setdiff1d(trn_ind_dbg_1,t_indnz_sbmx_dbg) 
-                config_tune['tind_nz'] = tune.sample_from(lambda _:t_indnz_sbmx_dbg)
-                config_tune['tind_z'] =  tune.sample_from(lambda _:trn_indz_dbg) 
-                #config_tune['tind_nz'] = tune.sample_from(lambda _:cini_nz)
-                #config_tune['tind_z'] =  tune.sample_from(lambda _:cini_z) 
+                #df_trn_ind = pd.read_csv('/home/jothi/CoSaMP_genNN/output/titan_ppr/results/d78_ppr/ref_dbg/trn_indices_alph_omp_N=80_0_c0.csv')
+                #trn_ind_dbg_fl = df_trn_ind['trn_ind_nw'].to_numpy() 
+                #t_indnz_sbmx_dbg = [0,2,9,60]
+                #trn_ind_dbg_1 = np.setdiff1d(trn_ind_dbg_fl,cr_mxind)
+                #trn_indz_dbg = np.setdiff1d(trn_ind_dbg_1,t_indnz_sbmx_dbg) 
+                #config_tune['tind_nz'] = tune.sample_from(lambda _:t_indnz_sbmx_dbg)
+                #config_tune['tind_z'] =  tune.sample_from(lambda _:trn_indz_dbg) 
+                config_tune['tind_nz'] = tune.sample_from(lambda _:cini_nz)
+                config_tune['tind_z'] =  tune.sample_from(lambda _:cini_z) 
             else:
                 config_tune['tind_nz'] = tune.sample_from(lambda _: random.sample(cini_sbmind.tolist(), int(4*cini_nz_ln/5-ntpk_cr-args.vlcfadd)))
 
@@ -582,21 +581,16 @@ def mo_main_utils_function_prll(data_all,out_dir_ini,opt_params,nn_prms_dict,ind
             print(":after scheduler:")
             #reporter = CLIReporter(metric_columns=["loss_met",'training iteration']) 
             print(":after reporter:")
-            #import pdb;pdb.set_trace()
+           # import pdb;pdb.set_trace()
             #FIXME: the training stops once the validation error starts increasing: sometimes, you might want to use more epochs. 
             if args.dbg_it2==1:
                 if i>0:
-                    #hid_layers = [tune.randint(3,21) for __ in range(Nlhid)]    
+                    hid_layers = [tune.randint(3,21) for __ in range(Nlhid)]    
                     #avtnlst =['None'  if tune_sg==0 else tune.choice(['None',nn.Sigmoid(),nn.ReLU()]) for a_m in range(Nlhid)]
-                    #avtnlst =['None'  if tune_sg==0 else tune.choice(['None',nn.ReLU()]) for a_m in range(Nlhid)]
-                    hid_layers = [tune.randint(12,13),tune.randint(17,18)]    
-                    #avtnlst =[tune.choice([nn.ReLU()]),tune.choice(['None'])]
-                    avtnlst =[tune.choice([nn.Sigmoid()]),tune.choice(['None'])]
-                    config_tune['lr'] = tune.choice([0.000001])
+                    avtnlst =['None'  if tune_sg==0 else tune.choice(['None',nn.ReLU()]) for a_m in range(Nlhid)]
                     for layer in range(len(hid_layers)): 
                         config_tune[f'h{layer}'] = hid_layers[layer]  
                         config_tune[f'a{layer}'] = avtnlst[layer] 
-                #import pdb; pdb.set_trace()   
             part_fnc = partial(tnn.train_theta,torch.Tensor(np.abs(c_hat.flatten())),thet_upd,thet_str,i, 
                 torch.Tensor(mi_mat_in),epochs,freq,W_fac[i],avtnlst,Nlhid,tune_sg,it_fix,rnd_smp_dict)
             print(":after partfunc:")
@@ -643,7 +637,8 @@ def mo_main_utils_function_prll(data_all,out_dir_ini,opt_params,nn_prms_dict,ind
             #import pdb; pdb.set_trace()
             #FIXME:seeding for initializing theta in the next iteration
             np.random.seed(i+sd_thtini_2nd)
-            thet_upd = torch.Tensor(np.random.rand(z_n))
+            thet_upd = torch.Tensor(np.random.rand(z_n))    
+            #thet_upd = torch.Tensor(thet_bst)
 # Write temp    orary variables:
             ## Least squares step at low validation error:          
             c_omp_bst = np.zeros(P)
@@ -666,48 +661,97 @@ def mo_main_utils_function_prll(data_all,out_dir_ini,opt_params,nn_prms_dict,ind
                     Lambda_sel_tmp = (np.argsort(Gmod_bst)[::-1])[:S_chs]               
                     Lambda_sel = Lambda_sel_tmp
                 else:
-                    Lambda_sel_tmp = (np.argsort(Gmod_bst)[::-1])[:S_chs]
+                    c_res = pd.read_csv(f'{out_dir_ini}/plots/j={j}/it={i-1}/comp_rs_1dellps_n={N}_genmod_S={S_omp}_{i-1}_j{j}_c{trc}.csv').to_numpy().flatten()
+                    crs_ind_tp = np.argsort(np.abs(c_res))[::-1][:args.sel_res]
+                    G_bst_h = Gmod_bst[P_omp:]
+                    tpgh_ind = np.argsort(G_bst_h)[::-1][:S_chs] 
+                    Lambda_sel_tmp = tpgh_ind + P_omp    
                     Lam_pr_bst  = pd.read_csv(f'{out_dir_ini}/plots/j={j}/it={i-1}/Lam_bst_1dellps_n={N}_genmod_S={S_omp}_{i-1}_j{j}_c{trc}.csv')['Lam_bst'].to_numpy().flatten()
-                    Lam_comn = np.intersect1d(Lambda_sel_tmp,Lam_pr_bst)
+                    Lam_comn1 = np.intersect1d(Lambda_sel_tmp,Lam_pr_bst)
+                    print('Lam_comn1',Lam_comn1)
+                    Lam_comn2 = np.intersect1d(crs_ind_tp,Lam_pr_bst)
+                    print('Lam_comn2',Lam_comn2)
+                    Lam_comn = np.union1d(Lam_comn1,Lam_comn2)  
+                    print('Lam_comn',Lam_comn)
                     S_comn = Lam_comn.size
-                    S_csit = S_omp+S_chs-S_comn
+                    #S_csit = S_omp+S_chs-S_comn
+                    print('tpgh_ind',tpgh_ind)
+                    print('G_bst_h',G_bst_h)
+                    print('crs_ind_tp',crs_ind_tp)
                     print("Lambda_sel_tmp",Lambda_sel_tmp)
                     print("Lambda_pr_bst",Lam_pr_bst)
                     print("Lam_comn",Lam_comn)
 
-                    if S_csit > S_chs:
-                        Lambda_sel_tmp = Lambda_sel_tmp[np.in1d(Lambda_sel_tmp, Lam_comn, invert=True)][:sprsty]       
-                        #import pdb; pdb.set_trace()
+                    if np.size(Lam_comn1) > 0 and np.size(Lam_comn2)==0:
+                        Lambda_sel_tmp_g = Lambda_sel_tmp[np.in1d(Lambda_sel_tmp, Lam_comn1, invert=True)][:sprsty-args.sel_res]       
+                        Lambda_sel_tmp = np.union1d(Lambda_sel_tmp_g,crs_ind_tp)
+                        
+                    elif np.size(Lam_comn1) == 0 and np.size(Lam_comn2) > 0:
+                        Lc2_sz = np.size(Lam_comn2)   
+                        add_res_unq = np.setdiff1d(crs_ind_tp,Lam_comn2)
+                                #import pdb; pdb.set_trace()
+                        Lambda_sel_tmp = np.union1d(Lambda_sel_tmp[:sprsty-args.sel_res+Lc2_sz],add_res_unq) 
                     elif S_comn==0: 
-                        Lambda_sel_tmp = Lambda_sel_tmp[:sprsty]
+                        Lambda_sel_tmp = np.union1d(Lambda_sel_tmp[:sprsty-args.sel_res],crs_ind_tp) 
                     print("Lambda_sel_tmp",Lambda_sel_tmp)
                     Lambda_sel = np.union1d(Lambda_sel_tmp,Lam_pr_bst)
                     print("Lambda_sel",Lambda_sel)
+                    #import pdb; pdb.set_trace()
+                    #previous approach:    
+                    #Lambda_sel_tmp = (np.argsort(Gmod_bst)[::-1])[:S_chs]
+                    #Lam_pr_bst  = pd.read_csv(f'{out_dir_ini}/plots/j={j}/it={i-1}/Lam_bst_1dellps_n={N}_genmod_S={S_omp}_{i-1}_j{j}_c{trc}.csv')['Lam_bst'].to_numpy().flatten()
+                    #Lam_comn = np.intersect1d(Lambda_sel_tmp,Lam_pr_bst)
+                    #S_comn = Lam_comn.size
+                    #S_csit = S_omp+S_chs-S_comn
+                    #print("Lambda_sel_tmp",Lambda_sel_tmp)
+                    #print("Lambda_pr_bst",Lam_pr_bst)
+                    #print("Lam_comn",Lam_comn)
+
+                    #if S_csit > S_chs:
+                    #    Lambda_sel_tmp = Lambda_sel_tmp[np.in1d(Lambda_sel_tmp, Lam_comn, invert=True)][:sprsty]       
+                    #    #import pdb; pdb.set_trace()
+                    #elif S_comn==0: 
+                    #    Lambda_sel_tmp = Lambda_sel_tmp[:sprsty]
+                    #print("Lambda_sel_tmp",Lambda_sel_tmp)
+                    #Lambda_sel = np.union1d(Lambda_sel_tmp,Lam_pr_bst)
+                    #print("Lambda_sel",Lambda_sel)
+            elif args.add_tpso_res==2: #very vanilla approach
+                if i==0:
+                    Lambda_sel_tmp = (np.argsort(Gmod_bst)[::-1])[:2*S_omp]               
+                    Lambda_sel = Lambda_sel_tmp
+                else:
+                    Lambda_sel_tmp = (np.argsort(Gmod_bst)[::-1])[:S_chs]
+                    Lam_pr_bst  = pd.read_csv(f'{out_dir_ini}/plots/j={j}/it={i-1}/Lam_bst_1dellps_n={N}_genmod_S={S_omp}_{i-1}_j{j}_c{trc}.csv')['Lam_bst'].to_numpy().flatten()
+                    print("Lambda_sel_tmp",Lambda_sel_tmp)
+                    print("Lambda_pr_bst",Lam_pr_bst)
+                    Lambda_sel = np.union1d(Lambda_sel_tmp,Lam_pr_bst)
+                    print("Lambda_sel",Lambda_sel)
+                
             else:
 
                 if i==0:
                     Lambda_sel_tmp = (np.argsort(Gmod_bst)[::-1])[:S_chs]               
                     Lambda_sel = Lambda_sel_tmp
-                elif i==tot_itr-1:
-                    cr_mxind_4 = (np.argsort(np.abs(c_hat))[::-1])[:4]
-                    Lambda_sel_tmp1 = (np.argsort(Gmod_bst)[::-1])[:S_chs-4]
-                    Lambda_sel_tmp = np.union1d(cr_mxind_4,Lambda_sel_tmp1) 
-                    Lam_pr_bst  = pd.read_csv(f'{out_dir_ini}/plots/j={j}/it={i-1}/Lam_bst_1dellps_n={N}_genmod_S={S_omp}_{i-1}_j{j}_c{trc}.csv')['Lam_bst'].to_numpy().flatten()
-                    Lam_comn = np.intersect1d(Lambda_sel_tmp,Lam_pr_bst)
-                    S_comn = Lam_comn.size
-                    S_csit = S_omp+S_chs-S_comn
-                    print("Lambda_sel_tmp",Lambda_sel_tmp)
-                    print("Lambda_pr_bst",Lam_pr_bst)
-                    print("Lam_comn",Lam_comn)
+                #elif i==tot_itr-1:
+                #    cr_mxind_4 = (np.argsort(np.abs(c_hat))[::-1])[:4]
+                #    Lambda_sel_tmp1 = (np.argsort(Gmod_bst)[::-1])[:S_chs-4]
+                #    Lambda_sel_tmp = np.union1d(cr_mxind_4,Lambda_sel_tmp1) 
+                #    Lam_pr_bst  = pd.read_csv(f'{out_dir_ini}/plots/j={j}/it={i-1}/Lam_bst_1dellps_n={N}_genmod_S={S_omp}_{i-1}_j{j}_c{trc}.csv')['Lam_bst'].to_numpy().flatten()
+                #    Lam_comn = np.intersect1d(Lambda_sel_tmp,Lam_pr_bst)
+                #    S_comn = Lam_comn.size
+                #    S_csit = S_omp+S_chs-S_comn
+                #    print("Lambda_sel_tmp",Lambda_sel_tmp)
+                #    print("Lambda_pr_bst",Lam_pr_bst)
+                #    print("Lam_comn",Lam_comn)
 
-                    if S_csit > S_chs:
-                        Lambda_sel_tmp = Lambda_sel_tmp[np.in1d(Lambda_sel_tmp, Lam_comn, invert=True)][:sprsty]       
-                        #import pdb; pdb.set_trace()
-                    elif S_comn==0: 
-                        Lambda_sel_tmp = Lambda_sel_tmp[:sprsty]
-                    print("Lambda_sel_tmp",Lambda_sel_tmp)
-                    Lambda_sel = np.union1d(Lambda_sel_tmp,Lam_pr_bst)
-                    print("Lambda_sel",Lambda_sel)
+                #    if S_csit > S_chs:
+                #        Lambda_sel_tmp = Lambda_sel_tmp[np.in1d(Lambda_sel_tmp, Lam_comn, invert=True)][:sprsty]       
+                #        #import pdb; pdb.set_trace()
+                #    elif S_comn==0: 
+                #        Lambda_sel_tmp = Lambda_sel_tmp[:sprsty]
+                #    print("Lambda_sel_tmp",Lambda_sel_tmp)
+                #    Lambda_sel = np.union1d(Lambda_sel_tmp,Lam_pr_bst)
+                #    print("Lambda_sel",Lambda_sel)
         
                 else:
                     Lambda_sel_tmp = (np.argsort(Gmod_bst)[::-1])[:S_chs]
