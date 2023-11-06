@@ -89,6 +89,7 @@ parser.add_argument('--d',dest='dim',default=21,type=int,help='d')
 parser.add_argument('--dbgit2',dest='dbg_it2',default=0,type=int,help='change after the second iteration')
 parser.add_argument('--S_chs',dest='chs_sprs',default=0,type=int,help='S_chs')
 parser.add_argument('--res_tol',dest='resomp_tol',default=1e-10,type=float,help='p_h')
+parser.add_argument('--lr',dest='l_r',default=0.001,type=float,help='learning rate')
 parser.add_argument('--ompsol',dest='chc_omp',default='stdomp',type=str,help='p_h')
 parser.add_argument('--poly',dest='chc_poly',default='Hermite',type=str,help='p_h')
 parser.add_argument('--qoi',dest='QoI',default='heat_flux',type=str,help='quantity of Interest')
@@ -515,7 +516,7 @@ data_all = {'y_data':y_data,'u_data':u_data,'mi_mat':mi_mat}
 #%% initial parameters:
 # sprsty = 43
 # sprsty = 5  #Think about giving sparsity=1, some matrix manipulations might get affected.
-learning_rate = 0.001
+learning_rate = args.l_r
 epochs = args.ep
 #avtnlst =['None' for a_m in range(Nlhid)]#[nn.Sigmoid()] # for the final layer by default exp decay is enforced, so the size is number of layers-1.
 if args.debug_act==1:
@@ -761,15 +762,16 @@ if args.plt_spcdt>=0:
 #=================================================================================
 #=================================================================================
 #import pdb; pdb.set_trace()
-num_workers = args.num_work
-part_main_func = partial(mmf.mo_main_utils_function_prll,data_all,out_dir_ini,
-                        opt_params,nn_prms_dict,indices0,args,eps_u,W_fac,eps_abs)
-pool = multiprocessing.Pool(processes=num_workers)
-result_main_prl = pool.map(part_main_func,list(j_rng))
-pool.close()
-pool.join()    
-import pdb; pdb.set_trace()
-
+#num_workers = args.num_work
+#part_main_func = partial(mmf.mo_main_utils_function_prll,data_all,out_dir_ini,
+#                        opt_params,nn_prms_dict,indices0,args,eps_u,W_fac,eps_abs)
+#pool = multiprocessing.Pool(processes=num_workers)
+#result_main_prl = pool.map(part_main_func,list(j_rng))
+#pool.close()
+#pool.join()    
+#import pdb; pdb.set_trace()
+for j in j_rng:
+    mmf.mo_main_utils_function_prll(data_all,out_dir_ini,opt_params,nn_prms_dict,indices0,args,eps_u,W_fac,eps_abs,j)
 #plt.show()
 end_time = time.time()
 print('end - start times:',end_time-start_time)

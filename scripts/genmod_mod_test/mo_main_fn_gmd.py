@@ -55,7 +55,7 @@ sys.path.append('/home/jothi/CoSaMP_genNN/scripts/GenMod-org-Hmt')
 import genmod.run_optimizations_rsdl as ro
 import genmod_mod_test.polynomial_chaos_utils as pcu
 import genmod_mod_test.Gmodel_NN as gnn
-import genmod_mod_test.train_NN_omp_wptmg_test as tnn
+import genmod_mod_test.train_NN_omp_wptmg_test_bf_trn3rd as tnn
 import genmod_mod_test.omp_utils as omu
 import genmod_mod_test.test_coeffs_val_er_utils as tcu
 import warnings
@@ -531,15 +531,15 @@ def mo_main_utils_function_prll(data_all,out_dir_ini,opt_params,nn_prms_dict,ind
             if args.dbg_rdtvind==1:
                 ##df_trn_ind = pd.read_csv('/home/jothi/CoSaMP_genNN/output/titan_ppr/results/csaug13/d=21/p=3/ref_dbg/plots_abs/trn_indices_alph_omp_N=100_0_c0.csv')
                 ##t_indnz_sbmx_dbg = [3,4,16,196]
-                #df_trn_ind = pd.read_csv('/home/jothi/CoSaMP_genNN/output/titan_ppr/results/d78_ppr/ref_dbg/trn_indices_alph_omp_N=80_0_c0.csv')
-                #trn_ind_dbg_fl = df_trn_ind['trn_ind_nw'].to_numpy() 
-                #t_indnz_sbmx_dbg = [0,2,9,60]
-                #trn_ind_dbg_1 = np.setdiff1d(trn_ind_dbg_fl,cr_mxind)
-                #trn_indz_dbg = np.setdiff1d(trn_ind_dbg_1,t_indnz_sbmx_dbg) 
-                #config_tune['tind_nz'] = tune.sample_from(lambda _:t_indnz_sbmx_dbg)
-                #config_tune['tind_z'] =  tune.sample_from(lambda _:trn_indz_dbg) 
-                config_tune['tind_nz'] = tune.sample_from(lambda _:cini_nz)
-                config_tune['tind_z'] =  tune.sample_from(lambda _:cini_z) 
+                df_trn_ind = pd.read_csv('/home/jothi/CoSaMP_genNN/output/titan_ppr/results/d78_ppr/ref_dbg/trn_indices_alph_omp_N=80_0_c0.csv')
+                trn_ind_dbg_fl = df_trn_ind['trn_ind_nw'].to_numpy() 
+                t_indnz_sbmx_dbg = [0,2,9,60]
+                trn_ind_dbg_1 = np.setdiff1d(trn_ind_dbg_fl,cr_mxind)
+                trn_indz_dbg = np.setdiff1d(trn_ind_dbg_1,t_indnz_sbmx_dbg) 
+                config_tune['tind_nz'] = tune.sample_from(lambda _:t_indnz_sbmx_dbg)
+                config_tune['tind_z'] =  tune.sample_from(lambda _:trn_indz_dbg) 
+                #config_tune['tind_nz'] = tune.sample_from(lambda _:cini_nz)
+                #config_tune['tind_z'] =  tune.sample_from(lambda _:cini_z) 
             else:
                 config_tune['tind_nz'] = tune.sample_from(lambda _: random.sample(cini_sbmind.tolist(), int(4*cini_nz_ln/5-ntpk_cr-args.vlcfadd)))
 
@@ -582,16 +582,21 @@ def mo_main_utils_function_prll(data_all,out_dir_ini,opt_params,nn_prms_dict,ind
             print(":after scheduler:")
             #reporter = CLIReporter(metric_columns=["loss_met",'training iteration']) 
             print(":after reporter:")
-           # import pdb;pdb.set_trace()
+            #import pdb;pdb.set_trace()
             #FIXME: the training stops once the validation error starts increasing: sometimes, you might want to use more epochs. 
             if args.dbg_it2==1:
                 if i>0:
-                    hid_layers = [tune.randint(3,21) for __ in range(Nlhid)]    
+                    #hid_layers = [tune.randint(3,21) for __ in range(Nlhid)]    
                     #avtnlst =['None'  if tune_sg==0 else tune.choice(['None',nn.Sigmoid(),nn.ReLU()]) for a_m in range(Nlhid)]
-                    avtnlst =['None'  if tune_sg==0 else tune.choice(['None',nn.ReLU()]) for a_m in range(Nlhid)]
+                    #avtnlst =['None'  if tune_sg==0 else tune.choice(['None',nn.ReLU()]) for a_m in range(Nlhid)]
+                    hid_layers = [tune.randint(12,13),tune.randint(17,18)]    
+                    #avtnlst =[tune.choice([nn.ReLU()]),tune.choice(['None'])]
+                    avtnlst =[tune.choice([nn.Sigmoid()]),tune.choice(['None'])]
+                    config_tune['lr'] = tune.choice([0.000001])
                     for layer in range(len(hid_layers)): 
                         config_tune[f'h{layer}'] = hid_layers[layer]  
                         config_tune[f'a{layer}'] = avtnlst[layer] 
+                #import pdb; pdb.set_trace()   
             part_fnc = partial(tnn.train_theta,torch.Tensor(np.abs(c_hat.flatten())),thet_upd,thet_str,i, 
                 torch.Tensor(mi_mat_in),epochs,freq,W_fac[i],avtnlst,Nlhid,tune_sg,it_fix,rnd_smp_dict)
             print(":after partfunc:")
