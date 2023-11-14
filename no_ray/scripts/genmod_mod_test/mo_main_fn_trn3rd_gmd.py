@@ -288,44 +288,46 @@ def mo_main_utils_function_prll(data_all,out_dir_ini,opt_params,nn_prms_dict,ind
             #Manual kfold split:
             #=============================================================
 
-            #results_kcv = []
-            #thet_dict_full = []
-            #tind_allfld_tpl = tnn.kfoldcv_manual_stratified_split(cini_nz,cini_z) 
-            ##import pdb;pdb.set_trace() 
-            #for i_fltnz, (trn_ind_fl_tr,tst_ind_fl_tr) in enumerate(tind_allfld_tpl):
-            #    print("============================================================")
-            #    print(f"=============fold-{i_fltnz}===============")
-            #    print("============================================================")
-            #    print("common indices between train and c_hat (nz)", np.intersect1d(trn_ind_fl_tr,cini_nz))
-            #    print("common indices between test and c_hat (nz)", np.intersect1d(tst_ind_fl_tr,cini_nz))
-            #    #import pdb;pdb.set_trace() 
-            #    rnd_smp_dict = {'trn_ind':trn_ind_fl_tr,'val_ind':tst_ind_fl_tr}
-            #    res_dict,thet_hist  = tnn.train_theta(torch.Tensor(np.abs(c_hat.flatten())),thet_upd,thet_str,i, 
-            #                          torch.Tensor(mi_mat_in),epochs,freq,W_fac[i],hid_layers,avtnlst,
-            #                          Nlhid,tune_sg,it_fix,rnd_smp_dict,learning_rate,args.fr_hist)
-            #    results_kcv.append(res_dict)      
-            #    thet_dict_full.append(thet_hist) 
-            #    #thet_upd = torch.Tensor(np.random.rand(z_n))    
-            #    thet_upd = torch.Tensor(thet_str)
+            results_kcv = []
+            thet_dict_full = []
+            tind_allfld_tpl = tnn.kfoldcv_manual_stratified_split(cini_nz,cini_z) 
+            #import pdb;pdb.set_trace() 
+            for i_fltnz, (trn_ind_fl_tr,tst_ind_fl_tr) in enumerate(tind_allfld_tpl):
+                print("============================================================")
+                print(f"=============fold-{i_fltnz}===============")
+                print("============================================================")
+                print("common indices between train and c_hat (nz)", np.intersect1d(trn_ind_fl_tr,cini_nz))
+                print("common indices between test and c_hat (nz)", np.intersect1d(tst_ind_fl_tr,cini_nz))
+                #import pdb;pdb.set_trace() 
+                rnd_smp_dict = {'trn_ind':trn_ind_fl_tr,'val_ind':tst_ind_fl_tr}
+                res_dict,thet_hist  = tnn.train_theta(torch.Tensor(np.abs(c_hat.flatten())),thet_upd,thet_str,i, 
+                                      torch.Tensor(mi_mat_in),epochs,freq,W_fac[i],hid_layers,avtnlst,
+                                      Nlhid,tune_sg,it_fix,rnd_smp_dict,learning_rate,args.fr_hist,
+                                      j,chkpnt_dir=out_dir_ini)
+                results_kcv.append(res_dict)      
+                thet_dict_full.append(thet_hist) 
+                #thet_upd = torch.Tensor(np.random.rand(z_n))    
+                thet_upd = torch.Tensor(thet_str)
             #=============================================================
             # for intentional overfitting:
             #=============================================================
-            results_kcv = []
-            thet_dict_full = []
-            #import pdb;pdb.set_trace() 
-                
-            trn_ind_fl_tr = np.arange(0,P_alg)
-            tst_ind_fl_tr = np.array([]) 
-            tind_allfld_tpl = [(trn_ind_fl_tr,tst_ind_fl_tr)]
-            rnd_smp_dict = {'trn_ind':trn_ind_fl_tr,'val_ind':tst_ind_fl_tr}
-            res_dict,thet_hist  = tnn.train_theta(torch.Tensor(np.abs(c_hat.flatten())),thet_upd,thet_str,i, 
-                                  torch.Tensor(mi_mat_in),epochs,freq,W_fac[i],hid_layers,avtnlst,
-                                  Nlhid,tune_sg,it_fix,rnd_smp_dict,learning_rate,args.fr_hist,
-                                  j,chkpnt_dir=out_dir_ini)
-            results_kcv.append(res_dict)      
-            thet_dict_full.append(thet_hist) 
-            #thet_upd = torch.Tensor(np.random.rand(z_n))    
-            thet_upd = torch.Tensor(thet_str)
+            #results_kcv = []
+            #thet_dict_full = []
+            ##import pdb;pdb.set_trace() 
+            #    
+            #trn_ind_fl_tr = np.arange(0,P_alg)
+            #tst_ind_fl_tr = np.array([]) 
+            #tind_allfld_tpl = [(trn_ind_fl_tr,tst_ind_fl_tr)]
+            #rnd_smp_dict = {'trn_ind':trn_ind_fl_tr,'val_ind':tst_ind_fl_tr}
+            #res_dict,thet_hist  = tnn.train_theta(torch.Tensor(np.abs(c_hat.flatten())),thet_upd,thet_str,i, 
+            #                      torch.Tensor(mi_mat_in),epochs,freq,W_fac[i],hid_layers,avtnlst,
+            #                      Nlhid,tune_sg,it_fix,rnd_smp_dict,learning_rate,args.fr_hist,
+            #                      j,chkpnt_dir=out_dir_ini)
+            #results_kcv.append(res_dict)      
+            #thet_dict_full.append(thet_hist) 
+            ##thet_upd = torch.Tensor(np.random.rand(z_n))    
+            #thet_upd = torch.Tensor(thet_str)
+            #=============================================================
                 #if i==0:    
                 #    #to avoid 
                 #    thet_upd = torch.Tensor(thet_str)
