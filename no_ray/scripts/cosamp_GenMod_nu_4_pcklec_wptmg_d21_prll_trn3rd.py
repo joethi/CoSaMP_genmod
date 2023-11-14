@@ -76,6 +76,7 @@ parser.add_argument('--Nrep',dest='N_rep',default=1,type=int,help='Number of sam
 parser.add_argument('--Nlhid',dest='N_hid',default=1,type=int,help='Number of sample replications')
 parser.add_argument('--hbd',dest='h_bnd',default=7,type=int,help='Number of sample replications')
 parser.add_argument('--lr',dest='l_r',default=0.001,type=float,help='Number of sample replications')
+parser.add_argument('--pd',dest='p_d',default=0,type=float,help='Number of sample replications')
 parser.add_argument('--epochs',dest='ep',default=10000,type=int,help='Number of epochs')
 parser.add_argument('--iter_fix',dest='it_fix',default=10000,type=int,help='After this number the metric is evaluated')
 parser.add_argument('--tfr',dest='fr_hist',default=10000,type=int,help='d')

@@ -380,7 +380,8 @@ def mo_main_utils_function_prll(data_all,out_dir_ini,opt_params,nn_prms_dict,ind
             #    pickle.dump(best_config,bprms_pickl)
             #print("Best hyperparameters found were: ",best_config)
             #GNNmod = gnn.GenNN([d] + [best_config[] for lyr in range(Nlhid)] +[1])
-            GNNmod = gnn.GenNN([d] + hid_layers +[1])
+            #GNNmod = gnn.GenNN([d] + hid_layers +[1])
+            GNNmod = gnn.GenNN([d] + hid_layers +[1],args.p_d)
             #torch.save(GNNmod.state_dict(),f'{out_dir_ini}/plots/j={j}/it={i}/modelprms_final_dict_i{i}_j{j}.pt')
             #import pdb; pdb.set_trace()
             #best_result_df = best_result.metrics_dataframe

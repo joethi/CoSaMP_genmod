@@ -56,7 +56,7 @@ def kaiming_init_prms(model_obj):
         else:
             prms.data.normal_(0, math.sqrt(2) / math.sqrt(prms.shape[1]))
 
-def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc,hidlist,actlist, Nlhid,TSIG,iter_fix,rnd_smp_dict,l_r, fr_hist, j_ind, chkpnt_dir=None,data_dir=None):
+def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc,hidlist,actlist, Nlhid,TSIG,iter_fix,rnd_smp_dict,l_r, fr_hist, j_ind, chkpnt_dir=None,data_dir=None,p_d=0):
    # print("sys path:",sys.path)
     #import pdb; pdb.set_trace()
     cost = []
@@ -95,7 +95,8 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc
     for i in range(P_fl):                 
         f_x[i] = c + (chat_omp[i]-a)*(de-c)/(b-a)        
 
-    GNNmod = gnn.GenNN([d_in] + hidlist +[1] )
+    GNNmod = gnn.GenNN([d_in] + hidlist +[1],p_d)
+    #GNNmod = gnn.GenNN([d_in] + hidlist +[1])
     #GNNmod = gnn.GenNN([d_in,cnfg_tn['Hid'],1])
     optimizer = torch.optim.Adam(GNNmod.parameters(), lr=l_r)
     for epoch in range(epochs):
