@@ -118,6 +118,7 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc
         total=loss.item() 
         total_uwt = loss_uwt.item()
         #============calculate validation loss=====================
+        GNNmod.eval()
         G_NN_val = GNNmod(alph_in_val,actlist,Nt_ind).flatten()            
         loss_val, W_val,loss_uwt_val = loss_crit(G_omp_val,G_NN_val,W_fc,f_x,v_ind)
         total_val = loss_val.item()

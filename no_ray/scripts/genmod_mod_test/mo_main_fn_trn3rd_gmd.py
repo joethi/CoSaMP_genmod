@@ -398,6 +398,7 @@ def mo_main_utils_function_prll(data_all,out_dir_ini,opt_params,nn_prms_dict,ind
             #predict the third order coefficients:
             #Gmod_bst = GNNmod(torch.Tensor(mi_mat),[best_config.get(f'a{lyr1}') for lyr1 in range(Nlhid)],i).detach().numpy().flatten()
             nn.utils.vector_to_parameters(thet_bst, GNNmod.parameters())
+            GNNmod.eval()
             Gmod_bst = GNNmod(torch.Tensor(mi_mat),avtnlst,i).detach().numpy().flatten()
             #import pdb; pdb.set_trace()
             #TODO : start correcting the code from here

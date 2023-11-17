@@ -543,8 +543,8 @@ epochs = args.ep
 #    avtnlst =[tune.choice([nn.ReLU()]),tune.choice(['None'])] 
 #else:
 #    avtnlst =['None'  if tune_sg==0 else tune.choice(['None',nn.Sigmoid(),nn.ReLU()]) for a_m in range(Nlhid)] #[nn.Sigmoid()] # for the final layer by default exp decay is enforced, so the size is number of layers-1.
-#avtnlst =['None',nn.ReLU()] #tune.choice(['None',nn.Sigmoid(),nn.ReLU()])] #[nn.Sigmoid()] # for the final layer by default exp decay is enforced, so the size is number of layers-1.
-avtnlst =[nn.ReLU(),nn.ReLU()] #tune.choice(['None',nn.Sigmoid(),nn.ReLU()])] #[nn.Sigmoid()] # for the final layer by default exp decay is enforced, so the size is number of layers-1.
+#avtnlst =[nn.ReLU(),nn.ReLU()] #tune.choice(['None',nn.Sigmoid(),nn.ReLU()])] #[nn.Sigmoid()] # for the final layer by default exp decay is enforced, so the size is number of layers-1.
+avtnlst = [nn.ReLU()] #tune.choice(['None',nn.Sigmoid(),nn.ReLU()])] #[nn.Sigmoid()] # for the final layer by default exp decay is enforced, so the size is number of layers-1.
 #import pdb; pdb.set_trace()
 #avtnlst = ['None',nn.Sigmoid(),nn.Relu()]
 #%% Write index file:

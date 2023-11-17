@@ -77,7 +77,7 @@ class GenNN(nn.Module):
                     #print('activation after dropout:',activation)
             else:
                     activation = torch.exp(-lin_map(activation))        
-                    #activation = torch.abs(lin_map(activation))        
+                    #activation = torch.exp(lin_map(activation))        
 
         return activation
 #%% Triple layer:
