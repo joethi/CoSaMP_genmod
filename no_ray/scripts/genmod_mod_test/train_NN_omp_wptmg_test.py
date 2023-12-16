@@ -45,18 +45,21 @@ def loss_crit(ghat,g,W_fc,f_x,ind_vt):
     # L  = torch.sum(((ghat-g)**2))/(LA.norm(ghat)*torch.numel(G_ini))
     # Loss_crt = nn.MSELoss(reduction='sum')
     return L,Wt,L_uwt
-def kaiming_init_prms(model_obj):
+def kaiming_init_prms(model_obj,seed=42):
+    torch.manual_seed(seed)  # Set seed for CPU random number generator
+    torch.cuda.manual_seed(seed) 
     for name, prms in model_obj.named_parameters():
         #import pdb; pdb.set_trace()
         if name.endswith(".bias"):
             prms.data.fill_(0)
         #elif name.startswith("hidden.0") or name.startswith("hidden.1"):  # The first layer does not have ReLU applied on its input
-        elif name.startswith("hidden.0"):  # The first layer does not have ReLU applied on its input
-            prms.data.normal_(0, 1 / math.sqrt(prms.shape[1]))
+        #elif name.startswith("hidden.0"):  # The first layer does not have ReLU applied on its input
+        #    prms.data.normal_(0, 1 / math.sqrt(prms.shape[1]))
         else:
             prms.data.normal_(0, math.sqrt(2) / math.sqrt(prms.shape[1]))
+            #import pdb; pdb.set_trace()
 
-def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc,hidlist,actlist, Nlhid,TSIG,iter_fix,rnd_smp_dict,l_r, fr_hist, j_ind, chkpnt_dir=None,data_dir=None,p_d=0):
+def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc,hidlist,actlist, Nlhid,TSIG,iter_fix,rnd_smp_dict,l_r, fr_hist, j_ind, chkpnt_dir=None,data_dir=None,p_d=0,i_fld_ind=0):
    # print("sys path:",sys.path)
     #import pdb; pdb.set_trace()
     cost = []
@@ -131,6 +134,7 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc
         if (epoch+1)%fr_hist==0 or epoch<500: 
            thet_tmp  = nn.utils.parameters_to_vector(GNNmod.parameters())
            thet_dict[f'e{epoch}'] = thet_tmp.detach().numpy()
+           torch.save(GNNmod.state_dict(),f'{chkpnt_dir}/plots/j={j_ind}/it={Nt_ind}/nnprms_dic_cpt_i{Nt_ind}_j{j_ind}_ep{epoch}_fld{i_fld_ind}.pt')
            print('epoch:',epoch,"total",total)
            print('epoch:',epoch,"total_val",total_val)
         if total_val < total_val_up:
@@ -163,7 +167,7 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc
             optimizer.step()
             if (epoch+1)%10000==0 or epoch <10:    
                 grad_dic = {x[0]:x[1].grad for x in GNNmod.named_parameters()}            
-                torch.save(grad_dic,f'{chkpnt_dir}/plots/j={j_ind}/it={Nt_ind}/grad_dic_cpt_i{Nt_ind}_j{j_ind}_ep{epoch}.pt')
+                torch.save(grad_dic,f'{chkpnt_dir}/plots/j={j_ind}/it={Nt_ind}/grad_dic_cpt_i{Nt_ind}_j{j_ind}_ep{epoch}_fld{i_fld_ind}.pt')
                 #import pdb; pdb.set_trace()
             optimizer.zero_grad()
             thet_up_ep = nn.utils.parameters_to_vector(GNNmod.parameters())

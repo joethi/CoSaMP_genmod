@@ -57,6 +57,7 @@ class GenNN(nn.Module):
         self.Drop = nn.Dropout(p=p_d)
         for l1,l2 in zip(Layers,Layers[1:]):
             self.hidden.append(nn.Linear(l1,l2))
+        #import pdb; pdb.set_trace()    
         #print('Layers',Layers)    
     def forward(self,alpha,avtn_lst,it_ind):
         activation  = torch.clone(alpha)
@@ -73,11 +74,18 @@ class GenNN(nn.Module):
                 else:
                     activation = avtn_lst[k](lin_map(activation))        
                     #print("activation before dropout ('a' not none):",activation)
+                    #import pdb; pdb.set_trace()    
                     activation = self.Drop(activation) 
                     #print('activation after dropout:',activation)
             else:
+                    #activation = torch.exp(-lin_map(activation))        
+                    #activation = torch.abs(lin_map(activation))        
+                if avtn_lst[k] == 'expdec': 
                     activation = torch.exp(-lin_map(activation))        
-                    #activation = torch.exp(lin_map(activation))        
+                else:
+                    activation = avtn_lst[k](lin_map(activation))        
+                    #activation = nn.ReLU()(lin_map(activation))        
+        #import pdb; pdb.set_trace()    
 
         return activation
 #%% Triple layer:

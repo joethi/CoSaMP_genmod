@@ -3,6 +3,7 @@ import random
 import numpy.linalg as la 
 import genmod_mod_test.polynomial_chaos_utils as pcu
 import genmod_mod_test.train_NN_omp_wptmg_test as tnn
+from sklearn.linear_model import QuantileRegressor
 
 def find_ls_coeff_err_usr_actset(Ph,S_lam,Lam_ls_lst,y_data,optim_indices,chc_Psi,u_data,mi_mat,data_tst,ls_ind):
     Lam_ls_ini = np.array(Lam_ls_lst)  
@@ -33,9 +34,51 @@ def apply_lst_sqr_actset(Lam_ls,P,mi_mat,chc_Psi,u_data,y_data,optim_indices):
     Psi_T = np.transpose(Psi)
     c_ls_sht = (la.inv(Psi_T @ Psi) @ Psi_T @ u_data[optim_indices]).flatten()
     c_ls[Lam_ls] = c_ls_sht
+    #import pdb; pdb.set_trace()   
     return c_ls 
 #======================================================================================
+def apply_irls_lst_sqr_actset(Lam_ls,P,mi_mat,chc_Psi,u_data,y_data,optim_indices,max_iter=10):
+    N = np.size(u_data[optim_indices])    
+    M_vl = len(Lam_ls)    
+    c_ls = np.zeros((P,max_iter))
+    Psi = pcu.make_Psi_drn(y_data[optim_indices,:],mi_mat,Lam_ls,chc_Psi)
+    Psi_T = np.transpose(Psi)
+    c_ls_sht = (la.inv(Psi_T @ Psi) @ Psi_T @ u_data[optim_indices]).flatten()
+    c_ls_sht = np.zeros(M_vl)
+    import pdb; pdb.set_trace()   
+    for i in range(max_iter):    
+        weights = np.zeros(N)
+        SSe_vl = np.dot(u_data[optim_indices],u_data[optim_indices]) - np.dot(c_ls_sht, Psi_T @ u_data[optim_indices])
+        sig_cap = np.sqrt(SSe_vl/(N-M_vl))
+        res_it = u_data[optim_indices] - (Psi @ c_ls_sht).flatten() 
+        #sig_cap = 1.345 * np.std(res_it) 
+        for j in range(N):
+            if abs(res_it[j])/sig_cap <=1: 
+                weights[j] = 1.0
+            else:
+                weights[j] = sig_cap/abs(res_it[j]) 
+        #import pdb; pdb.set_trace()   
+        W_it = np.diag(weights)  
+        #W_it = np.diag(np.ones(N))  
+        c_ls_sht = (la.inv(Psi_T @ W_it @ Psi) @ Psi_T @ W_it @ u_data[optim_indices]).flatten()
+        c_ls[Lam_ls,i] = c_ls_sht 
+    import pdb; pdb.set_trace()   
+    return c_ls 
 #======================================================================================
+#======================Quantile regression QR=========================================
+#======================================================================================
+def apply_qtl_rgrssn_actset(Lam_ls,P,mi_mat,chc_Psi,u_data,y_data,optim_indices):
+    from sklearn.utils.fixes import sp_version, parse_version
+    solver = "highs" if sp_version >= parse_version("1.6.0") else "interior-point"
+    c_ls = np.zeros(P)
+    Psi = pcu.make_Psi_drn(y_data[optim_indices,:],mi_mat,Lam_ls,chc_Psi)
+    reg = QuantileRegressor(quantile=0.5, solver=solver).fit(Psi, u_data[optim_indices]) 
+    import pdb; pdb.set_trace()   
+    #Psi_T = np.transpose(Psi)
+    #c_ls_sht = (la.inv(Psi_T @ Psi) @ Psi_T @ u_data[optim_indices]).flatten()
+    c_ls[Lam_ls] = c_ls_sht
+    #import pdb; pdb.set_trace()   
+    return c_ls 
 #======================================================================================
     #%% Take two basis at a time and apply least squares:
     #    Lam_ls = pd.read_csv(f'{out_dir_ini}/results/csjul24_rsdl/plots/j=0/it=1/Lam_sel_1dellps_n=100_genmod_S=6_1_j0_c0.csv')['Lam_sel'].to_numpy().flatten() 
