@@ -264,6 +264,8 @@ def omp_utils_order_ph_dummy(out_dir_ini,cht_fl_rpdc,d,p,y_data,u_data,data_tst,
 def cosamp_func(Psi,u_data,S_val,max_iter=10,hlt_crit='iter',tol_res=1e-4):
     res = np.copy(u_data)
     P_vl = np.size(Psi,1)
+    c_full = np.zeros((P_vl,max_iter))
+    c_full_2s = np.zeros((P_vl,max_iter))
     k = 0; halt = False
     res_norm = []
     while not halt:
@@ -282,6 +284,8 @@ def cosamp_func(Psi,u_data,S_val,max_iter=10,hlt_crit='iter',tol_res=1e-4):
         c_s[Lam] = c_2s[Lam]
         res = u_data - Psi[:,Lam] @ c_s[Lam] 
         res_norm.append(la.norm(res))
+        c_full[:,k] = c_s 
+        c_full_2s[:,k] = c_2s 
         if hlt_crit=='norm':
             halt = (res_norm[k] <= tol_res)
         elif hlt_crit=='iter':
@@ -292,7 +296,7 @@ def cosamp_func(Psi,u_data,S_val,max_iter=10,hlt_crit='iter',tol_res=1e-4):
         print('shape of T_set:',T_set.shape)
         k += 1
         #import pdb; pdb.set_trace()
-    return c_s, res_norm
+    return c_s, res_norm, c_full, c_full_2s
 def cross_valid_cosamp(Psi,u_data,S_rng,csmp_prms,n_fold=5):
      max_it_cs = csmp_prms['maxit_csmp'] 
      hltcrit_cs = csmp_prms['hlcrt_csmp']

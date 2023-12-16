@@ -50,9 +50,11 @@ from torch import relu
 ##FIXME Consider adding the activation functions in the initialization step itself: 
 class GenNN(nn.Module):
     
-    def __init__(self,Layers):
+    def __init__(self,Layers,p_d=0):
         super(GenNN, self).__init__()
+        #torch.manual_seed(42)
         self.hidden = nn.ModuleList()
+        self.Drop = nn.Dropout(p=p_d)
         for l1,l2 in zip(Layers,Layers[1:]):
             self.hidden.append(nn.Linear(l1,l2))
         #print('Layers',Layers)    
@@ -61,11 +63,18 @@ class GenNN(nn.Module):
         L = len(self.hidden)
         #print('L',L)
         for k,lin_map in zip(range(L),self.hidden):
+            #import pdb;pdb.set_trace()
             if k < L-1:
                 if avtn_lst[k] == 'None': 
-                    activation =lin_map(activation)        
+                    activation = lin_map(activation)        
+                    #print('activation before dropout:',activation)
+                    activation = self.Drop(activation) 
+                    #print('activation after dropout:',activation)
                 else:
                     activation = avtn_lst[k](lin_map(activation))        
+                    #print("activation before dropout ('a' not none):",activation)
+                    activation = self.Drop(activation) 
+                    #print('activation after dropout:',activation)
             else:
                     activation = torch.exp(-lin_map(activation))        
                     #activation = torch.abs(lin_map(activation))        

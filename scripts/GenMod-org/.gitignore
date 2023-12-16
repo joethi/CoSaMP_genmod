@@ -1,8 +1,0 @@
-data/glass_particle
-data/single_particle
-data/Titan_Chemistry_Data
-genmod/__pycache__
-scripts/old
-output/*
-Dockerfile
-docker-compose.yml

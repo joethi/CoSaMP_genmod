@@ -10,6 +10,7 @@ import numpy.linalg as la
 import matplotlib.pyplot as plt
 import torch
 import pandas as pd
+import math
 import torch.nn as nn
 import sys
 #sys.path.append('/home/jothi/CoSaMP_genNN')
@@ -44,17 +45,21 @@ def loss_crit(ghat,g,W_fc,f_x,ind_vt):
     # L  = torch.sum(((ghat-g)**2))/(LA.norm(ghat)*torch.numel(G_ini))
     # Loss_crt = nn.MSELoss(reduction='sum')
     return L,Wt,L_uwt
-def kaiming_init_prms(model_obj):
+def kaiming_init_prms(model_obj,seed=42):
+    torch.manual_seed(seed)  # Set seed for CPU random number generator
+    torch.cuda.manual_seed(seed) 
     for name, prms in model_obj.named_parameters():
-        import pdb; pdb.set_trace()
+        #import pdb; pdb.set_trace()
         if name.endswith(".bias"):
             prms.data.fill_(0)
-        elif name.startswith("layers.0"):  # The first layer does not have ReLU applied on its input
-            prms.data.normal_(0, 1 / math.sqrt(prms.shape[1]))
+        #elif name.startswith("hidden.0") or name.startswith("hidden.1"):  # The first layer does not have ReLU applied on its input
+        #elif name.startswith("hidden.0"):  # The first layer does not have ReLU applied on its input
+        #    prms.data.normal_(0, 1 / math.sqrt(prms.shape[1]))
         else:
             prms.data.normal_(0, math.sqrt(2) / math.sqrt(prms.shape[1]))
+            #import pdb; pdb.set_trace()
 
-def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc,hidlist,actlist, Nlhid,TSIG,iter_fix,rnd_smp_dict,l_r, fr_hist, j_ind, chkpnt_dir=None,data_dir=None):
+def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc,hidlist,actlist, Nlhid,TSIG,iter_fix,rnd_smp_dict,l_r, fr_hist, j_ind, chkpnt_dir=None,data_dir=None,p_d=0,i_fld_ind=0):
    # print("sys path:",sys.path)
     #import pdb; pdb.set_trace()
     cost = []
@@ -93,7 +98,8 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc
     for i in range(P_fl):                 
         f_x[i] = c + (chat_omp[i]-a)*(de-c)/(b-a)        
 
-    GNNmod = gnn.GenNN([d_in] + hidlist +[1] )
+    GNNmod = gnn.GenNN([d_in] + hidlist +[1],p_d)
+    #GNNmod = gnn.GenNN([d_in] + hidlist +[1])
     #GNNmod = gnn.GenNN([d_in,cnfg_tn['Hid'],1])
     optimizer = torch.optim.Adam(GNNmod.parameters(), lr=l_r)
     for epoch in range(epochs):
@@ -102,9 +108,11 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc
             GNNmod_dict = GNNmod.state_dict() 
             nprm_tnthet = sum(p_el.numel() for p_el in GNNmod_dict.values())            
             print("nprm_tnthet",nprm_tnthet)
-            nn.utils.vector_to_parameters(thet_up,GNNmod.parameters())
+            kaiming_init_prms(GNNmod)
+            #nn.utils.vector_to_parameters(thet_up,GNNmod.parameters())
             G_NN_full = GNNmod(alph_in_tot,actlist,Nt_ind).flatten()      
             G_ini = G_NN_full.detach().numpy()
+            #import pdb; pdb.set_trace()
         G_NN = GNNmod(alph_in,actlist,Nt_ind).flatten()
         G_upd = G_NN.detach().numpy()
         loss,W_m,loss_uwt = loss_crit(G_omp,G_NN,W_fc,f_x,t_ind) #!!!!UNCOMMENT THE LOSS CONSISTENT WITH THE FUNCTION:
@@ -113,6 +121,7 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc
         total=loss.item() 
         total_uwt = loss_uwt.item()
         #============calculate validation loss=====================
+        GNNmod.eval()
         G_NN_val = GNNmod(alph_in_val,actlist,Nt_ind).flatten()            
         loss_val, W_val,loss_uwt_val = loss_crit(G_omp_val,G_NN_val,W_fc,f_x,v_ind)
         total_val = loss_val.item()
@@ -120,9 +129,12 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc
         if epoch%freq==0: #and epoch<=iter_fix: #FIXME
            cost.append(total)       
            cost_val.append(total_val)
+           #cost_rel.append(total/la.norm(W_m*G_omp)**2)
+           cost_val_rel.append(total_val/la.norm(W_val*G_omp_val)**2)
         if (epoch+1)%fr_hist==0 or epoch<500: 
            thet_tmp  = nn.utils.parameters_to_vector(GNNmod.parameters())
            thet_dict[f'e{epoch}'] = thet_tmp.detach().numpy()
+           torch.save(GNNmod.state_dict(),f'{chkpnt_dir}/plots/j={j_ind}/it={Nt_ind}/nnprms_dic_cpt_i{Nt_ind}_j{j_ind}_ep{epoch}_fld{i_fld_ind}.pt')
            print('epoch:',epoch,"total",total)
            print('epoch:',epoch,"total_val",total_val)
         if total_val < total_val_up:
@@ -135,6 +147,7 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc
            total_trn_up = total #try to use torch.clone for copying.
         if epoch == epochs-1: 
             costval_min = min(cost_val) 
+            costval_min_rel = min(cost_val_rel)
             #print('GNNmod dict:',GNNmod.state_dict())
             #checkpoint = Checkpoint.from_dict({"epoch": epoch,"thet_fx":GNNmod.state_dict(),"thet":thet_bst.detach().numpy(),"train_app":cost,"val_app":cost_val})
         #for debugging purposes:    
@@ -152,9 +165,9 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc
         if epoch < epochs-1:   
             loss.backward()
             optimizer.step()
-            if (epoch+1)%10000 or epoch <10:    
+            if (epoch+1)%10000==0 or epoch <10:    
                 grad_dic = {x[0]:x[1].grad for x in GNNmod.named_parameters()}            
-                torch.save(grad_dic,f'{chkpnt_dir}/plots/j={j_ind}/it={Nt_ind}/grad_dic_cpt_i{Nt_ind}_j{j_ind}_ep{epoch}.pt')
+                torch.save(grad_dic,f'{chkpnt_dir}/plots/j={j_ind}/it={Nt_ind}/grad_dic_cpt_i{Nt_ind}_j{j_ind}_ep{epoch}_fld{i_fld_ind}.pt')
                 #import pdb; pdb.set_trace()
             optimizer.zero_grad()
             thet_up_ep = nn.utils.parameters_to_vector(GNNmod.parameters())
@@ -163,12 +176,12 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc
     print('epoch with minimum validation error:',ep_bst)
     #import pdb; pdb.set_trace()
     #return {'cost':cost,'cost_val':cost_val,'thet_f':thet_f,'thet_bst':thet_bst,'ep_bst':ep_bst,'costval_min':costval_min,"G_f":G_f}, thet_dict
-    return {'cost':cost,'cost_val':cost_val,'thet_f':thet_f,'thet_bst':thet_bst,'ep_bst':ep_bst,'costval_min':costval_min}, thet_dict
+    return {'cost':cost,'cost_val':cost_val,'thet_f':thet_f,'thet_bst':thet_bst,'ep_bst':ep_bst,'costval_min':costval_min,'costval_min_rel':costval_min_rel}, thet_dict
 def get_best_result_from_kfoldcv(results_kcv):
     nfold = len(results_kcv)
     min_vlss = np.zeros(nfold)
     for i in range(nfold):
-        min_vlss[i] = results_kcv[i]['costval_min']        
+        min_vlss[i] = results_kcv[i]['costval_min_rel']        
     bst_ind = np.argmin(min_vlss)        
     #import pdb; pdb.set_trace()    
     return bst_ind,min_vlss       
