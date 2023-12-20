@@ -59,7 +59,7 @@ def kaiming_init_prms(model_obj,seed=42):
             prms.data.normal_(0, math.sqrt(2) / math.sqrt(prms.shape[1]))
             #import pdb; pdb.set_trace()
 
-def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc,hidlist,actlist, Nlhid,TSIG,iter_fix,rnd_smp_dict,l_r, fr_hist, j_ind, chkpnt_dir=None,data_dir=None,p_d=0,i_fld_ind=0):
+def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc,hidlist,actlist, Nlhid,TSIG,iter_fix,rnd_smp_dict,l_r, fr_hist, j_ind,wgt_flg, chkpnt_dir=None,data_dir=None,p_d=0,i_fld_ind=0):
    # print("sys path:",sys.path)
     #import pdb; pdb.set_trace()
     cost = []
@@ -80,9 +80,12 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc
     t_ind = rnd_smp_dict['trn_ind']    
     v_ind = rnd_smp_dict['val_ind']    
     G_omp = chat_omp[t_ind]
+    wgt_alph_t = wgt_flg[t_ind,:]    
+    wgt_alph_v = wgt_flg[v_ind,:]    
     alph_in = alph_in_tot[t_ind,:]
     G_omp_val = chat_omp[v_ind]
-    alph_in_val = alph_in_tot[v_ind,:]
+    alph_in_val = wgt_alph_v * alph_in_tot[v_ind,:]
+    #import pdb; pdb.set_trace()    
     #thet = torch.clone(thet_up)
     #thet_dict1 = thet.detach().numpy()
     thet_dict = {}    
@@ -134,7 +137,7 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc
         if (epoch+1)%fr_hist==0 or epoch<500: 
            thet_tmp  = nn.utils.parameters_to_vector(GNNmod.parameters())
            thet_dict[f'e{epoch}'] = thet_tmp.detach().numpy()
-           torch.save(GNNmod.state_dict(),f'{chkpnt_dir}/plots/j={j_ind}/it={Nt_ind}/nnprms_dic_cpt_i{Nt_ind}_j{j_ind}_ep{epoch}_fld{i_fld_ind}.pt')
+           #torch.save(GNNmod.state_dict(),f'{chkpnt_dir}/plots/j={j_ind}/it={Nt_ind}/nnprms_dic_cpt_i{Nt_ind}_j{j_ind}_ep{epoch}_fld{i_fld_ind}.pt')
            print('epoch:',epoch,"total",total)
            print('epoch:',epoch,"total_val",total_val)
         if total_val < total_val_up:
@@ -167,7 +170,7 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc
             optimizer.step()
             if (epoch+1)%10000==0 or epoch <10:    
                 grad_dic = {x[0]:x[1].grad for x in GNNmod.named_parameters()}            
-                torch.save(grad_dic,f'{chkpnt_dir}/plots/j={j_ind}/it={Nt_ind}/grad_dic_cpt_i{Nt_ind}_j{j_ind}_ep{epoch}_fld{i_fld_ind}.pt')
+                #torch.save(grad_dic,f'{chkpnt_dir}/plots/j={j_ind}/it={Nt_ind}/grad_dic_cpt_i{Nt_ind}_j{j_ind}_ep{epoch}_fld{i_fld_ind}.pt')
                 #import pdb; pdb.set_trace()
             optimizer.zero_grad()
             thet_up_ep = nn.utils.parameters_to_vector(GNNmod.parameters())
@@ -177,6 +180,68 @@ def train_theta(chat_omp,thet_up,thet_str1, Nt_ind, alph_in_tot,epochs,freq,W_fc
     #import pdb; pdb.set_trace()
     #return {'cost':cost,'cost_val':cost_val,'thet_f':thet_f,'thet_bst':thet_bst,'ep_bst':ep_bst,'costval_min':costval_min,"G_f":G_f}, thet_dict
     return {'cost':cost,'cost_val':cost_val,'thet_f':thet_f,'thet_bst':thet_bst,'ep_bst':ep_bst,'costval_min':costval_min,'costval_min_rel':costval_min_rel}, thet_dict
+def train_theta_fine_tune(chat_omp,thet_up_bst,Nt_ind, alph_in_p3,hidlist,actlist, Nlhid,rnd_smp_dict,j_ind, chkpnt_dir=None,data_dir=None,p_d=0,i_fld_ind=0):
+   # print("sys path:",sys.path)
+    #import pdb; pdb.set_trace()
+    lrnd_wgts = torch.ones_like(alph_in_p3)   
+    total=0
+    P_alg = alph_in_p3.size(dim=0)
+    t_ind = rnd_smp_dict['trn_ind']    
+    v_ind = rnd_smp_dict['val_ind']    
+    G_omp = chat_omp[t_ind]
+    alph_in = alph_in_p3[t_ind,:]
+    G_omp_val = chat_omp[v_ind]
+    alph_in_val = alph_in_p3[v_ind,:]
+    #thet = torch.clone(thet_up)
+    #thet_dict1 = thet.detach().numpy()
+    P_in = alph_in.size(dim=0)
+    d_in = alph_in.size(dim=1)
+    tol_mtch = 0.01    
+    tol_mtch_zr = 1e-6
+    #For weights:
+    GNNmod = gnn.GenNN([d_in] + hidlist +[1],p_d)
+    nn.utils.vector_to_parameters(thet_up_bst, GNNmod.parameters())
+    ##perform theta initialization:    
+    G_NN_val_mn = GNNmod(alph_in_val,actlist,Nt_ind).flatten()            
+    bst_i_pcnt = torch.ones(len(v_ind))
+    for i_vl,g_vl in enumerate(alph_in_val):
+        #import pdb; pdb.set_trace()
+        if torch.nonzero(alph_in_val[i_vl]).numel()==1:
+            nz_dim = torch.nonzero(alph_in_val[i_vl])[0].item()
+            if G_omp_val[i_vl]!=0:
+                if ((G_omp_val[i_vl] - G_NN_val_mn[i_vl])/G_omp_val[i_vl]).item() > tol_mtch: 
+                    err_gvl_p = []
+                    for i_pcnt in range(10):
+                        wgt_alpha = (i_pcnt/10) *  alph_in_val[i_vl]
+                        G_NN_val = GNNmod(wgt_alpha,actlist,Nt_ind).flatten()            
+                        err_gvl_p.append(abs((G_omp_val[i_vl] - G_NN_val).item()))
+                    bst_i_pcnt[i_vl] = 0.1 * (err_gvl_p.index(min(err_gvl_p)))    
+                    nonzero_indices = torch.where(alph_in_p3[:,nz_dim] ==3)[0].item()
+                    #vl_p3_nz = [ii for ii in nonzero_indices if torch.count_nonzero(alph_in_p3[ii, :]) == 1]
+                    lrnd_wgts[[v_ind[i_vl],nonzero_indices],nz_dim] = bst_i_pcnt[i_vl] 
+                elif ((G_omp_val[i_vl] - G_NN_val_mn[i_vl])/G_omp_val[i_vl]).item() < -tol_mtch:
+                    err_gvl_n = []
+                    for i_pcnt in range(10):
+                        wgt_alpha = (1+i_pcnt/10) *  alph_in_val[i_vl]
+                        G_NN_val = GNNmod(wgt_alpha,actlist,Nt_ind).flatten()            
+                        err_gvl_n.append(abs((G_omp_val[i_vl] - G_NN_val).item()))
+                    bst_i_pcnt[i_vl] = 1+ 0.1*(err_gvl_n.index(min(err_gvl_n)))
+                    nonzero_indices = torch.where(alph_in_p3[:,nz_dim]==2)[0].item()
+                    #vl_p3_nz = [ii for ii in nonzero_indices if np.count_nonzero(alph_in_p3[ii, :]) == 1]
+                    lrnd_wgts[[v_ind[i_vl],nonzero_indices],nz_dim] = bst_i_pcnt[i_vl] 
+            else:
+                if abs(G_omp_val[i_vl].item() - G_NN_val_mn[i_vl].item()) > tol_mtch_zr: 
+                    err_gvl_p = []
+                    for i_pcnt in range(10):
+                        wgt_alpha = (1+i_pcnt/10) *  alph_in_val[i_vl]
+                        G_NN_val = GNNmod(wgt_alpha,actlist,Nt_ind).flatten()            
+                        err_gvl_p.append(abs((G_omp_val[i_vl] - G_NN_val).item()))
+                    bst_i_pcnt[i_vl] = 1+ 0.1 * (err_gvl_p.index(min(err_gvl_p)))    
+                    nonzero_indices = torch.where(alph_in_p3[:,nz_dim]==3)[0].item()
+                    #vl_p3_nz = [ii for ii in nonzero_indices if torch.count_nonzero(alph_in_p3[ii, :]) == 1]
+                    lrnd_wgts[[v_ind[i_vl],nonzero_indices],nz_dim] = bst_i_pcnt[i_vl]
+    return lrnd_wgts
+
 def get_best_result_from_kfoldcv(results_kcv):
     nfold = len(results_kcv)
     min_vlss = np.zeros(nfold)
