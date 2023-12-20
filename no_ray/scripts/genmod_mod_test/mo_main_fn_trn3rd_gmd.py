@@ -312,57 +312,76 @@ def mo_main_utils_function_prll(data_all,out_dir_ini,opt_params,nn_prms_dict,ind
             #=============================================================
             #Manual 2-fold split for testing:
             #=============================================================
-            #results_kcv = []
-            #thet_dict_full = []
-            #all_ind_tv = np.union1d(cini_nz,cini_z)
+            results_kcv = []
+            thet_dict_full = []
+            all_ind_tv = np.union1d(cini_nz,cini_z)
+            cini_sbmind = np.setdiff1d(cini_nz,cr_mxind)
+            ntpk_cr = np.size(cr_mxind)
+            trn_ind_nz = random.sample(cini_sbmind.tolist(), int(4*cini_nz_ln/5-ntpk_cr)) #to include all top 10.
+            #print('trn_ind_nz',trn_ind_nz)
+            ##trn_ind_nz = random.sample(cini_sbmind.tolist(), int(4*cini_nz_ln/5))
+            trn_ind_z = random.sample(cini_z.tolist(),int(4*cini_z_ln/5)) 
+            tind_spl = np.concatenate((trn_ind_nz,trn_ind_z,cr_mxind))    
             #import pdb;pdb.set_trace() 
             #tind_spl = random.sample(all_ind_tv.tolist(),int(0.8*np.size(all_ind_tv)))
-            #vind_spl = np.setdiff1d(all_ind_tv,tind_spl)
-            #tind_allfld_tpl = [(np.array(tind_spl),vind_spl)] 
+            vind_spl = np.setdiff1d(all_ind_tv,tind_spl)
+            tind_allfld_tpl = [(np.array(tind_spl),vind_spl)] 
             #import pdb;pdb.set_trace() 
-            #for i_fltnz, (trn_ind_fl_tr,tst_ind_fl_tr) in enumerate(tind_allfld_tpl):
-            #    print("============================================================")
-            #    print(f"=============fold-{i_fltnz}===============")
-            #    print("============================================================")
-            #    print("common indices between train and c_hat (nz)", np.intersect1d(trn_ind_fl_tr,cini_nz))
-            #    print("common indices between test and c_hat (nz)", np.intersect1d(tst_ind_fl_tr,cini_nz))
-            #    #import pdb;pdb.set_trace() 
-            #    rnd_smp_dict = {'trn_ind':trn_ind_fl_tr,'val_ind':tst_ind_fl_tr}
-            #    res_dict,thet_hist  = tnn.train_theta(torch.Tensor(np.abs(c_hat.flatten())),thet_upd,thet_str,i, 
-            #                          torch.Tensor(mi_mat_in),epochs,freq,W_fac[i],hid_layers,avtnlst,
-            #                          Nlhid,tune_sg,it_fix,rnd_smp_dict,learning_rate,args.fr_hist,
-            #                          j,chkpnt_dir=out_dir_ini,i_fld_ind=i_fltnz)
-            #    results_kcv.append(res_dict)      
-            #    thet_dict_full.append(thet_hist) 
-            #    #thet_upd = torch.Tensor(np.random.rand(z_n))    
-            #    thet_upd = torch.Tensor(thet_str)
+            for i_fltnz, (trn_ind_fl_tr,tst_ind_fl_tr) in enumerate(tind_allfld_tpl):
+                print("============================================================")
+                print(f"=============fold-{i_fltnz}===============")
+                print("============================================================")
+                print("common indices between train and c_hat (nz)", np.intersect1d(trn_ind_fl_tr,cini_nz))
+                print("common indices between test and c_hat (nz)", np.intersect1d(tst_ind_fl_tr,cini_nz))
+                #import pdb;pdb.set_trace() 
+                rnd_smp_dict = {'trn_ind':trn_ind_fl_tr,'val_ind':tst_ind_fl_tr}
+                res_dict_tmp,thet_hist_tmp  = tnn.train_theta(torch.Tensor(np.abs(c_hat.flatten())),thet_upd,thet_str,i, 
+                                      torch.Tensor(mi_mat_in),epochs,freq,W_fac[i],hid_layers,avtnlst,
+                                      Nlhid,tune_sg,it_fix,rnd_smp_dict,learning_rate,args.fr_hist,
+                                      j,torch.Tensor(np.ones_like(mi_mat)),chkpnt_dir=out_dir_ini,i_fld_ind=i_fltnz)
+                thet_bst_tmp = res_dict_tmp['thet_bst'] 
+                #mport pdb;pdb.set_trace() 
+                Wgt_mat_vl_tns  = tnn.train_theta_fine_tune(torch.Tensor(np.abs(c_hat.flatten())),thet_bst_tmp,i, 
+                                      torch.Tensor(mi_mat),hid_layers,avtnlst,
+                                      Nlhid,rnd_smp_dict,j,i_fld_ind=i_fltnz)
+
+                Wgt_mat_vl = Wgt_mat_vl_tns.detach().numpy()
+                #import pdb;pdb.set_trace() 
+                res_dict, thet_hist  = tnn.train_theta(torch.Tensor(np.abs(c_hat.flatten())),thet_upd,thet_str,i, 
+                                      torch.Tensor(mi_mat_in),epochs,freq,W_fac[i],hid_layers,avtnlst,
+                                      Nlhid,tune_sg,it_fix,rnd_smp_dict,learning_rate,args.fr_hist,
+                                      j,Wgt_mat_vl_tns,chkpnt_dir=out_dir_ini,i_fld_ind=i_fltnz)
+                results_kcv.append(res_dict)      
+                thet_dict_full.append(thet_hist) 
+                #thet_upd = torch.Tensor(np.random.rand(z_n))    
+                thet_upd = torch.Tensor(thet_str)
             #=============================================================
             # for intentional overfitting:
             #=============================================================
-            results_kcv = []
-            thet_dict_full = []
-            #import pdb;pdb.set_trace() 
-            trn_ind_fl_tr = np.arange(0,P_alg)
-            tst_ind_fl_tr = np.array([]) 
-            tind_allfld_tpl = [(trn_ind_fl_tr,tst_ind_fl_tr)]
-            rnd_smp_dict = {'trn_ind':trn_ind_fl_tr,'val_ind':tst_ind_fl_tr}
-            res_dict,thet_hist  = tnn.train_theta(torch.Tensor(np.abs(c_hat.flatten())),thet_upd,thet_str,i, 
-                                  torch.Tensor(mi_mat_in),epochs,freq,W_fac[i],hid_layers,avtnlst,
-                                  Nlhid,tune_sg,it_fix,rnd_smp_dict,learning_rate,args.fr_hist,
-                                  j,chkpnt_dir=out_dir_ini)
-            results_kcv.append(res_dict)      
-            thet_dict_full.append(thet_hist) 
-            #thet_upd = torch.Tensor(np.random.rand(z_n))    
-            thet_upd = torch.Tensor(thet_str)
-            #=============================================================
-                #if i==0:    
-                #    #to avoid 
-                #    thet_upd = torch.Tensor(thet_str)
-                #else:
-                #    np.random.seed(i+sd_thtini_2nd)
-                #    thet_upd = torch.Tensor(np.random.rand(z_n))    
-                #import pdb;pdb.set_trace() 
-            #import pdb;pdb.set_trace() 
+            #results_kcv = []
+            #thet_dict_full = []
+            ##import pdb;pdb.set_trace() 
+            #trn_ind_fl_tr = np.arange(0,P_alg)
+            #tst_ind_fl_tr = np.array([]) 
+            #tind_allfld_tpl = [(trn_ind_fl_tr,tst_ind_fl_tr)]
+            #rnd_smp_dict = {'trn_ind':trn_ind_fl_tr,'val_ind':tst_ind_fl_tr}
+            #res_dict,thet_hist  = tnn.train_theta(torch.Tensor(np.abs(c_hat.flatten())),thet_upd,thet_str,i, 
+            #                      torch.Tensor(mi_mat_in),epochs,freq,W_fac[i],hid_layers,avtnlst,
+            #                      Nlhid,tune_sg,it_fix,rnd_smp_dict,learning_rate,args.fr_hist,
+            #                      j,chkpnt_dir=out_dir_ini)
+            #results_kcv.append(res_dict)      
+            #thet_dict_full.append(thet_hist) 
+            ##thet_upd = torch.Tensor(np.random.rand(z_n))    
+            #thet_upd = torch.Tensor(thet_str)
+            ##=============================================================
+            #    #if i==0:    
+            #    #    #to avoid 
+            #    #    thet_upd = torch.Tensor(thet_str)
+            #    #else:
+            #    #    np.random.seed(i+sd_thtini_2nd)
+            #    #    thet_upd = torch.Tensor(np.random.rand(z_n))    
+            #    #import pdb;pdb.set_trace() 
+            ##import pdb;pdb.set_trace() 
             #=============================================================
             # StratifiedKFold only works with categorical data, so you need to create categories
             # for the nonzero elements
@@ -424,9 +443,15 @@ def mo_main_utils_function_prll(data_all,out_dir_ini,opt_params,nn_prms_dict,ind
             torch.save(best_result_dict,f'{out_dir_ini}/plots/j={j}/it={i}/model_best_cpt_i{i}_j{j}.pt')
             #predict the third order coefficients:
             #Gmod_bst = GNNmod(torch.Tensor(mi_mat),[best_config.get(f'a{lyr1}') for lyr1 in range(Nlhid)],i).detach().numpy().flatten()
+            nn.utils.vector_to_parameters(thet_bst_tmp, GNNmod.parameters())
+            GNNmod.eval()
+            Gmod_bst_nowgt = GNNmod(torch.Tensor(mi_mat),avtnlst,i).detach().numpy().flatten()
+            #=================================================================================
             nn.utils.vector_to_parameters(thet_bst, GNNmod.parameters())
             GNNmod.eval()
-            Gmod_bst = GNNmod(torch.Tensor(mi_mat),avtnlst,i).detach().numpy().flatten()
+            Wgt_mi_mat = Wgt_mat_vl * mi_mat 
+            #Gmod_bst_nowgt = GNNmod(torch.Tensor(mi_mat),avtnlst,i).detach().numpy().flatten()
+            Gmod_bst = GNNmod(torch.Tensor(Wgt_mi_mat),avtnlst,i).detach().numpy().flatten()
             #import pdb; pdb.set_trace()
             #TODO : start correcting the code from here
             # I want you to use checkpoints to save the nn parameters.    
@@ -756,7 +781,7 @@ def mo_main_utils_function_prll(data_all,out_dir_ini,opt_params,nn_prms_dict,ind
             #df_val_ind_nw = pd.DataFrame({'val_ind_nw':val_ind_nw})        
             #df_val_ind_nw.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/val_indices_alph_omp_N={N}_{i}_c{trc}.csv',index=False)
             
-            import pdb; pdb.set_trace()
+            #import pdb; pdb.set_trace()
             trn_ind_nw =  tind_allfld_tpl[best_ind_kcv][0]
             df_trn_ind_nw = pd.DataFrame({'trn_ind_nw':trn_ind_nw})        
             df_trn_ind_nw.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/trn_indices_alph_omp_N={N}_{i}_c{trc}.csv',index=False)
@@ -793,6 +818,10 @@ def mo_main_utils_function_prll(data_all,out_dir_ini,opt_params,nn_prms_dict,ind
             df_c_hat.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/c_hat_tot_1dellps_n={N}_genmod_S={S_omp}_{i}_j{j}_c{trc}.csv',index=False)
             df_Gs = pd.DataFrame({'Gmod_bst':Gmod_bst})
             df_Gs.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/Gmod_1dellps_n={N}_genmod_S={S_omp}_{i}_j{j}_c{trc}.csv',index=False)
+            df_Gs_nw = pd.DataFrame({'Gmod_bst':Gmod_bst_nowgt})
+            df_Gs_nw.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/Gmod_nwgt_1dellps_n={N}_genmod_S={S_omp}_{i}_j{j}_c{trc}.csv',index=False)
+            df_wgt_vl = pd.DataFrame(Wgt_mat_vl)
+            df_wgt_vl.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/Wgt_vl_1dellps_n={N}_genmod_S={S_omp}_{i}_j{j}_c{trc}.csv',index=False)
             df_c_omp_bst = pd.DataFrame({'comp_fnl':c_omp_bst})
             df_c_omp_bst.to_csv(f'{out_dir_ini}/plots/j={j}/it={i}/comp_fl_1dellps_n={N}_genmod_S={S_omp}_{i}_j{j}_c{trc}.csv',index=False)
             df_c_omp_sel = pd.DataFrame({'comp_sel':c_omp_sel})

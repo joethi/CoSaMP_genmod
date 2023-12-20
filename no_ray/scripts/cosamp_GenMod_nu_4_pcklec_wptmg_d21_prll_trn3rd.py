@@ -721,47 +721,47 @@ if args.plt_spcdt>=0:
 #=================================================================================
 #=============Test CoSaMP cv for 10 sample replications==========================
 #=================================================================================
-for j in j_rng:
-    print(f'=============#replication={j}============')
-    ecmn_ind = np.zeros(tot_itr)
-    os.makedirs(f'{out_dir_ini}/plots/j={j}',exist_ok=True)
-    optim_indices = indices0.iloc[j].to_numpy()
-    valid_indices = np.setdiff1d(range(np.size(u_data)), optim_indices)
-    trains = [name for name in indices0.columns if name.startswith("optim")]
-    test_indices = indices0.loc[j][trains].to_numpy()
-#    import pdb; pdb.set_trace()
-    data_tst = {'y_data':y_data,'u_data':u_data,'val_ind':valid_indices,'test_ind':test_indices,'opt_ind':optim_indices,'Nv':Nv,
-            'chc_poly':chc_Psi,'chc_omp':chc_omp_slv} 
-    #
-    Psi_csmp = pcu.make_Psi(y_data[optim_indices,:d],mi_mat,chc_Psi)
-    csmp_prms = {'maxit_csmp':10,'hlcrt_csmp':'iter','tolres_csmp':1e-2,'rnd_st_cvcs': 1} #'iter'
-    df_csmp_prms = pd.DataFrame(csmp_prms,index=[0])
-    df_csmp_prms.to_csv(f'{out_dir_ini}/csmp_prms_N{N}_p{p}.csv')
-    #S_rng = list(range(5,int(N/5+1)))
-    #S_opt,c_optcs,mn_vlerr_cscv,mn_trnerr_cscv= omu.cross_valid_cosamp(Psi_csmp,u_data[optim_indices],S_rng,csmp_prms,n_fold=5)
-    S_rng = 10
-    c_optcs, res_nrm, c_full_cs,c_full_2s_cs = omu.cosamp_func(Psi_csmp,u_data[optim_indices],S_rng)
-    S_opt = np.size(c_optcs)
-    trnerr_p_optcs, vlderr_p_optcs = tnn.val_test_err(data_tst,mi_mat,c_optcs)
-    df_ccs_opt = pd.DataFrame({'c_cs':c_optcs})
-    df_ccs_opt.to_csv(f'{out_dir_ini}/plots/j={j}/c_optcs_1dellps_n={N}_genmod_S={S_opt}_p={p}_j{j}.csv',index=False)
-    df_cfull_cs_opt = pd.DataFrame(c_full_cs)
-    df_cfull_cs_opt.to_csv(f'{out_dir_ini}/plots/j={j}/c_full_optcs_1dellps_n={N}_genmod_S={S_opt}_p={p}_j{j}.csv',index=False)
-    df_epsccs_opt = pd.DataFrame({'vlderr_p_cs':vlderr_p_optcs,'trnerr_p_cs':trnerr_p_optcs},index=[0])
-    df_epsccs_opt.to_csv(f'{out_dir_ini}/plots/epsu_csph_tst_1dellps_n={N}_genmod_S={S_opt}_j{j}.csv',index=False)
-    #plt.figure(4+j)
-    #fig, ax = plt.subplots()
-    #txtstrng = '\n'.join([r'$S_{opt}=Sop$'.replace('Sop',str(S_opt)),'R(k) = $||\mathbf{\Psi}(k) \mathbf{c} - \mathbf{u}(k)||_2$'])
-    #ax.plot(S_rng,mn_vlerr_cscv,'--*r',label='valid')
-    #ax.plot(S_rng,mn_trnerr_cscv,'--ob',label='train')
-    #ax.set_xlabel('Sparsity (S)')
-    #ax.set_ylabel(r'$\sum_{k=1}^{n_f} R(k) / n_f $')
-    #ax.text(0.35,0.85,txtstrng,transform=ax.transAxes,bbox=dict(facecolor='white',edgecolor='black'))
-    #ax.legend()
-    #ax.grid()
-    #plt.tight_layout()
-    #plt.savefig(f'{out_dir_ini}/csmp_cv_errplt_j{j+1}.png')
-import pdb; pdb.set_trace()    
+#for j in j_rng:
+#    print(f'=============#replication={j}============')
+#    ecmn_ind = np.zeros(tot_itr)
+#    os.makedirs(f'{out_dir_ini}/plots/j={j}',exist_ok=True)
+#    optim_indices = indices0.iloc[j].to_numpy()
+#    valid_indices = np.setdiff1d(range(np.size(u_data)), optim_indices)
+#    trains = [name for name in indices0.columns if name.startswith("optim")]
+#    test_indices = indices0.loc[j][trains].to_numpy()
+##    import pdb; pdb.set_trace()
+#    data_tst = {'y_data':y_data,'u_data':u_data,'val_ind':valid_indices,'test_ind':test_indices,'opt_ind':optim_indices,'Nv':Nv,
+#            'chc_poly':chc_Psi,'chc_omp':chc_omp_slv} 
+#    #
+#    Psi_csmp = pcu.make_Psi(y_data[optim_indices,:d],mi_mat,chc_Psi)
+#    csmp_prms = {'maxit_csmp':10,'hlcrt_csmp':'iter','tolres_csmp':1e-2,'rnd_st_cvcs': 1} #'iter'
+#    df_csmp_prms = pd.DataFrame(csmp_prms,index=[0])
+#    df_csmp_prms.to_csv(f'{out_dir_ini}/csmp_prms_N{N}_p{p}.csv')
+#    #S_rng = list(range(5,int(N/5+1)))
+#    #S_opt,c_optcs,mn_vlerr_cscv,mn_trnerr_cscv= omu.cross_valid_cosamp(Psi_csmp,u_data[optim_indices],S_rng,csmp_prms,n_fold=5)
+#    S_rng = 10
+#    c_optcs, res_nrm, c_full_cs,c_full_2s_cs = omu.cosamp_func(Psi_csmp,u_data[optim_indices],S_rng)
+#    S_opt = np.size(c_optcs)
+#    trnerr_p_optcs, vlderr_p_optcs = tnn.val_test_err(data_tst,mi_mat,c_optcs)
+#    df_ccs_opt = pd.DataFrame({'c_cs':c_optcs})
+#    df_ccs_opt.to_csv(f'{out_dir_ini}/plots/j={j}/c_optcs_1dellps_n={N}_genmod_S={S_opt}_p={p}_j{j}.csv',index=False)
+#    df_cfull_cs_opt = pd.DataFrame(c_full_cs)
+#    df_cfull_cs_opt.to_csv(f'{out_dir_ini}/plots/j={j}/c_full_optcs_1dellps_n={N}_genmod_S={S_opt}_p={p}_j{j}.csv',index=False)
+#    df_epsccs_opt = pd.DataFrame({'vlderr_p_cs':vlderr_p_optcs,'trnerr_p_cs':trnerr_p_optcs},index=[0])
+#    df_epsccs_opt.to_csv(f'{out_dir_ini}/plots/epsu_csph_tst_1dellps_n={N}_genmod_S={S_opt}_j{j}.csv',index=False)
+#    #plt.figure(4+j)
+#    #fig, ax = plt.subplots()
+#    #txtstrng = '\n'.join([r'$S_{opt}=Sop$'.replace('Sop',str(S_opt)),'R(k) = $||\mathbf{\Psi}(k) \mathbf{c} - \mathbf{u}(k)||_2$'])
+#    #ax.plot(S_rng,mn_vlerr_cscv,'--*r',label='valid')
+#    #ax.plot(S_rng,mn_trnerr_cscv,'--ob',label='train')
+#    #ax.set_xlabel('Sparsity (S)')
+#    #ax.set_ylabel(r'$\sum_{k=1}^{n_f} R(k) / n_f $')
+#    #ax.text(0.35,0.85,txtstrng,transform=ax.transAxes,bbox=dict(facecolor='white',edgecolor='black'))
+#    #ax.legend()
+#    #ax.grid()
+#    #plt.tight_layout()
+#    #plt.savefig(f'{out_dir_ini}/csmp_cv_errplt_j{j+1}.png')
+#import pdb; pdb.set_trace()    
 #=================================================================================
 #=================================================================================
 #for testing purposes: test the sparsity values for different sample replications 
@@ -793,73 +793,73 @@ import pdb; pdb.set_trace()
 #======================================================================================
 # Do not use the parallel calculation of Psi for high dimensional problems: it uses almost all memory 
 # for 79 dimension problem.
-for j in j_rng:
-    print(f'=============#replication={j}============')
-    os.makedirs(f'{out_dir_ini}/plots/j={j}',exist_ok=True)
-    ecmn_ind = np.zeros(tot_itr)
-    optim_indices = indices0.iloc[j].to_numpy()
-#====================================================
-#    outliers = [k for k in optim_indices if u_data[k]<7.9 or u_data[k]>24.0]
-#    import pdb; pdb.set_trace()
-#    optim_indices = np.setdiff1d(optim_indices,outliers)
-#    #optim_indices = np.union1d(optim_indices,[475])   
-#====================================================
-    valid_indices = np.setdiff1d(range(np.size(u_data)), optim_indices)
-    test_indices = np.copy(optim_indices)
-    data_tst = {'y_data':y_data,'u_data':u_data,'val_ind':valid_indices,'test_ind':test_indices,'opt_ind':optim_indices,'Nv':Nv,
-            'chc_poly':chc_Psi,'chc_omp':chc_omp_slv} 
-    c_omph, S_omph, test_omp_ph, valid_omp_ph,P_omph,mi_mat_omph, Psi_omph= omu.omp_utils_order_ph_prllNcalc(out_dir_ini,d,p,y_data,u_data,data_tst,optim_indices,chc_Psi,chc_omp_slv,S_omp,j)
-    #plt.figure(200)    
-    counts, bin_edges, _ = plt.hist(u_data[optim_indices], bins=100, edgecolor='black', alpha=0.7,label=f'j={j+1}') 
-    plt.xlabel('QoI')    
-    plt.ylabel('Frequency')    
-#    import pdb; pdb.set_trace()
-##import pdb; pdb.set_trace()
-##=================================================================================
-##======================================================================================
-### Testing some leasrt squares solution:
-    val_ls_tot = []        
-    trn_ls_tot = []        
-    S_strt = 8     
-    #S_true_78 = [0,60,2,1,74,9,51,3145,48,157,12,63,5,85285,21,229,49,726,80,138,4,79,152,
-    #                    2664,7,70,2984,2763,9229,714,2754,1449,305,215,11,13,1479,36,2690,218]        
-    S_true_78 = [0,2,3,4,18,21,225,2023]
-    #S_true_78 = [0, 21, 2, 4, 3, 2023, 82, 99, 45, 16]
-    S_true_78 = S_true_78[:S_strt]
-    print('S_true_78',S_true_78)    
-    for ls_ind in range(len(S_true_78)-S_strt+1): 
-        #c_ls = tcu.apply_lst_sqr_actset(S_true_78[:S_strt+ls_ind],P,mi_mat,chc_Psi,u_data,y_data,optim_indices)    
-        c_ls_nrml = tcu.apply_lst_sqr_actset(S_true_78[:S_strt+ls_ind],P,mi_mat,chc_Psi,u_data,y_data,optim_indices)    
-        #c_ls_full = tcu.apply_irls_lst_sqr_actset(S_true_78[:S_strt+ls_ind],P,mi_mat,chc_Psi,u_data,y_data,optim_indices,max_iter=30)    
-        #c_ls = c_ls_full[:,-1]
-        c_qr = tcu.apply_qtl_rgrssn_actset(S_true_78[:S_strt+ls_ind],P,mi_mat,chc_Psi,u_data,y_data,optim_indices)    
-        import pdb; pdb.set_trace()
-        trn_err_ls, valid_err_ls = tnn.val_test_err(data_tst,mi_mat,c_ls)
-        val_ls_tot.append(valid_err_ls)
-        trn_ls_tot.append(trn_err_ls)
-    df_c_ols = pd.DataFrame({'c_ls':c_ls_nrml})
-    df_c_ols.to_csv(f'{out_dir_ini}/plots/c_ols_actset_j{j}.csv',index=False)
-    df_cls = pd.DataFrame({'c_ls':c_ls})
-    df_cls.to_csv(f'{out_dir_ini}/plots/c_ls_actset_j{j}.csv',index=False)
-    df_err_ls = pd.DataFrame({'val_ls':np.array(val_ls_tot),'trn_ls':np.array(trn_ls_tot)})
-    df_err_ls.to_csv(f'{out_dir_ini}/plots/trnval_ls_list_j{j}.csv',index=False)
-#    plt.figure(j+1)
-#    plt.plot(np.arange(S_strt,len(S_true_78)+1,1),np.array(val_ls_tot),'--b*',label='valid,j={j}')
-#    plt.plot(np.arange(S_strt,len(S_true_78)+1,1),np.array(trn_ls_tot),'--r*',label='train,j={j}')
-#    plt.xlabel('Sparsity')    
-#    plt.ylabel('Relative valdiation error')    
-#    plt.savefig(f'{out_dir_ini}/plots/val_ls_vs_S_j={j}.png',dpi=300)
-plt.legend()
-plt.show()
-plt.savefig(f'{out_dir_ini}/plots/u_hist_j={j}.png',dpi=300)
-import pdb; pdb.set_trace()
-plt.figure(200)
-counts, bin_edges, _ = plt.hist(u_data, bins=5000, edgecolor='black', alpha=0.7,label='full set') 
-plt.xlabel('QoI')    
-plt.ylabel('Frequency')    
-plt.savefig(f'{out_dir_ini}/plots/u_hist_full.png',dpi=300)
-plt.legend()
-import pdb; pdb.set_trace()
+#for j in j_rng:
+#    print(f'=============#replication={j}============')
+#    os.makedirs(f'{out_dir_ini}/plots/j={j}',exist_ok=True)
+#    ecmn_ind = np.zeros(tot_itr)
+#    optim_indices = indices0.iloc[j].to_numpy()
+##====================================================
+##    outliers = [k for k in optim_indices if u_data[k]<7.9 or u_data[k]>24.0]
+##    import pdb; pdb.set_trace()
+##    optim_indices = np.setdiff1d(optim_indices,outliers)
+##    #optim_indices = np.union1d(optim_indices,[475])   
+##====================================================
+#    valid_indices = np.setdiff1d(range(np.size(u_data)), optim_indices)
+#    test_indices = np.copy(optim_indices)
+#    data_tst = {'y_data':y_data,'u_data':u_data,'val_ind':valid_indices,'test_ind':test_indices,'opt_ind':optim_indices,'Nv':Nv,
+#            'chc_poly':chc_Psi,'chc_omp':chc_omp_slv} 
+#    c_omph, S_omph, test_omp_ph, valid_omp_ph,P_omph,mi_mat_omph, Psi_omph= omu.omp_utils_order_ph_prllNcalc(out_dir_ini,d,p,y_data,u_data,data_tst,optim_indices,chc_Psi,chc_omp_slv,S_omp,j)
+#    #plt.figure(200)    
+#    counts, bin_edges, _ = plt.hist(u_data[optim_indices], bins=100, edgecolor='black', alpha=0.7,label=f'j={j+1}') 
+#    plt.xlabel('QoI')    
+#    plt.ylabel('Frequency')    
+##    import pdb; pdb.set_trace()
+###import pdb; pdb.set_trace()
+###=================================================================================
+###======================================================================================
+#### Testing some leasrt squares solution:
+#    val_ls_tot = []        
+#    trn_ls_tot = []        
+#    S_strt = 8     
+#    #S_true_78 = [0,60,2,1,74,9,51,3145,48,157,12,63,5,85285,21,229,49,726,80,138,4,79,152,
+#    #                    2664,7,70,2984,2763,9229,714,2754,1449,305,215,11,13,1479,36,2690,218]        
+#    S_true_78 = [0,2,3,4,18,21,225,2023]
+#    #S_true_78 = [0, 21, 2, 4, 3, 2023, 82, 99, 45, 16]
+#    S_true_78 = S_true_78[:S_strt]
+#    print('S_true_78',S_true_78)    
+#    for ls_ind in range(len(S_true_78)-S_strt+1): 
+#        #c_ls = tcu.apply_lst_sqr_actset(S_true_78[:S_strt+ls_ind],P,mi_mat,chc_Psi,u_data,y_data,optim_indices)    
+#        c_ls_nrml = tcu.apply_lst_sqr_actset(S_true_78[:S_strt+ls_ind],P,mi_mat,chc_Psi,u_data,y_data,optim_indices)    
+#        #c_ls_full = tcu.apply_irls_lst_sqr_actset(S_true_78[:S_strt+ls_ind],P,mi_mat,chc_Psi,u_data,y_data,optim_indices,max_iter=30)    
+#        #c_ls = c_ls_full[:,-1]
+#        c_qr = tcu.apply_qtl_rgrssn_actset(S_true_78[:S_strt+ls_ind],P,mi_mat,chc_Psi,u_data,y_data,optim_indices)    
+#        import pdb; pdb.set_trace()
+#        trn_err_ls, valid_err_ls = tnn.val_test_err(data_tst,mi_mat,c_ls)
+#        val_ls_tot.append(valid_err_ls)
+#        trn_ls_tot.append(trn_err_ls)
+#    df_c_ols = pd.DataFrame({'c_ls':c_ls_nrml})
+#    df_c_ols.to_csv(f'{out_dir_ini}/plots/c_ols_actset_j{j}.csv',index=False)
+#    df_cls = pd.DataFrame({'c_ls':c_ls})
+#    df_cls.to_csv(f'{out_dir_ini}/plots/c_ls_actset_j{j}.csv',index=False)
+#    df_err_ls = pd.DataFrame({'val_ls':np.array(val_ls_tot),'trn_ls':np.array(trn_ls_tot)})
+#    df_err_ls.to_csv(f'{out_dir_ini}/plots/trnval_ls_list_j{j}.csv',index=False)
+##    plt.figure(j+1)
+##    plt.plot(np.arange(S_strt,len(S_true_78)+1,1),np.array(val_ls_tot),'--b*',label='valid,j={j}')
+##    plt.plot(np.arange(S_strt,len(S_true_78)+1,1),np.array(trn_ls_tot),'--r*',label='train,j={j}')
+##    plt.xlabel('Sparsity')    
+##    plt.ylabel('Relative valdiation error')    
+##    plt.savefig(f'{out_dir_ini}/plots/val_ls_vs_S_j={j}.png',dpi=300)
+#plt.legend()
+#plt.show()
+#plt.savefig(f'{out_dir_ini}/plots/u_hist_j={j}.png',dpi=300)
+#import pdb; pdb.set_trace()
+#plt.figure(200)
+#counts, bin_edges, _ = plt.hist(u_data, bins=5000, edgecolor='black', alpha=0.7,label='full set') 
+#plt.xlabel('QoI')    
+#plt.ylabel('Frequency')    
+#plt.savefig(f'{out_dir_ini}/plots/u_hist_full.png',dpi=300)
+#plt.legend()
+#import pdb; pdb.set_trace()
 ## testing OMP using parallel Psi calculation:
 #=================================================================================
 #===============For Nrep replications run OMP parallel============================
