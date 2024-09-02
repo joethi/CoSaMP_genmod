@@ -1,0 +1,2 @@
+This repository contains the implementation of a deep learning-based algorithm developed during my master's thesis, titled "Neural Networks Based CoSaMP Algorithm for Polynomial Chaos Expansions." The core algorithm, known as the "Modified Orthogonal Matching Pursuit (OMP)," is designed to enhance the efficiency of Polynomial Chaos Expansions (PCEs). This method has practical applications in the context of NASA's space missions, providing robust solutions for uncertainty quantification in critical aerospace systems.
+
