@@ -1,10 +1,11 @@
 # -*- coding: utf-8 -*-
 """
 Created on Thu Oct 27 20:23:57 2022
-
-@author: jothi
+@author: Jothi Thondiraj, MS student, University of Colorado Boulder.
 """
-
+#=======================================================================================================================================
+# Training the Neural networks.
+#=======================================================================================================================================
 import numpy as np
 import numpy.linalg as la
 import matplotlib.pyplot as plt

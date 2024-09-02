@@ -1,3 +1,6 @@
+"""
+@author: Jothi Thondiraj, MS student, University of Colorado Boulder.
+"""
 import numpy as np
 import random
 import numpy.linalg as la 

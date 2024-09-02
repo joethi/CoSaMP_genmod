@@ -1,7 +1,10 @@
 import numpy as np
 import scipy.special as sps
 import pandas as pd
-
+"""
+@author 1: Jacqui Wentz, Postdoctoral fellow, University of Colorado Boulder.
+@author 2: Jothi Thondiraj, MS student, University of Colorado Boulder.
+"""
 def make_Psi(y, multi_index_matrix,chc_poly):
     """Evaluate Legendre polynomial for each multi-index.
 
@@ -110,11 +113,9 @@ def make_Psi_prll(y, multi_index_matrix,chc_poly,k):
 
         Psi = np.ones((n, P))
         p = np.max(multi_index_matrix)  # largest polynomial order
-
         # Iterate through the datapoints
         #for k in range(n):
         Hmt = np.zeros((p + 1, d))
-
         # Evalulate 1D Legendre poly for each degree at datapoints.
         # Note that we do not include 1/sqrt(2) in these values since we are
         # othogonalizing using the 1/2 measure.
@@ -122,9 +123,6 @@ def make_Psi_prll(y, multi_index_matrix,chc_poly,k):
         for i in range(p + 1):
             Pn = sps.hermite(i)
             Hmt[i, :] = (Pn(y[k, :]/np.sqrt(2)) * 2**(-i/2))/np.sqrt(sps.factorial(i)) 
-        #if k ==0:
-        #    df_Hmt = pd.DataFrame(Hmt)
-        #    df_Hmt.to_csv('Hmt_samp.csv',index=False)
         # Iterate through multi-indices and calculate multi-dim polynomial
         for i in range(P):
             alpha = multi_index_matrix[i, :]

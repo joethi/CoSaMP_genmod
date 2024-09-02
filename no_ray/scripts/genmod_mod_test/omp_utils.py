@@ -1,3 +1,6 @@
+"""
+@author: Jothi Thondiraj, MS student, University of Colorado Boulder.
+"""
 import sklearn.linear_model as lm
 from  sklearn.model_selection import KFold
 import genmod_mod_test.polynomial_chaos_utils as pcu
